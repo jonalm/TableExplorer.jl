@@ -2,3 +2,20 @@ name = "TableExplorer"
 uuid = "06aadf21-e808-4d09-b8ff-a8358291c55d"
 version = "0.1.0"
 authors = ["Jon Alm Eriksen <jon.alm.eriksen@protonmail.com>"]
+
+[deps]
+Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+
+[compat]
+Bonito = "4.1.9"
+DataFrames = "1.8.1"
+Tables = "1.12.1"
+
+[extras]
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "StableRNGs"]
