@@ -35,11 +35,11 @@ HTML string containing a fully functional interactive table
 
 # Column Types
 Specify custom formatting and search behavior for columns using Pair syntax:
-- `TextColumn`: Text data with regex/exact/contains search
-- `NumericColumn`: Numbers with decimal formatting and alignment
-- `CategoricalColumn`: Categorical data with optional color coding
-- `DateTimeColumn`: Date/time data with custom formatting
-- `BooleanColumn`: Boolean data with custom labels
+- `ColumnText`: Text data with regex/exact/contains search
+- `ColumnNumeric`: Numbers with decimal formatting and alignment
+- `ColumnCategorical`: Categorical data with optional color coding
+- `ColumnDateTime`: Date/time data with custom formatting
+- `ColumnBoolean`: Boolean data with custom labels
 
 # Features
 - Uses [Tabulator.js](https://tabulator.info/) library for rich table interactions
@@ -57,16 +57,16 @@ table_html(df)
 
 # Specify column types using Pairs (String or Symbol keys)
 table_html(df,
-    :status => CategoricalColumn(
+    :status => ColumnCategorical(
         color_map=Dict("Active" => "#28a745", "Inactive" => "#dc3545")
     ),
-    :price => NumericColumn(decimal_places=2),
-    :count => NumericColumn(decimal_places=0)
+    :price => ColumnNumeric(decimal_places=2),
+    :count => ColumnNumeric(decimal_places=0)
 )
 
 # Mix manual types with auto-detection
 table_html(df,
-    "status" => CategoricalColumn(color_map=my_colors),
+    "status" => ColumnCategorical(color_map=my_colors),
     # other columns use auto-detection
     auto_categorical_threshold=15
 )

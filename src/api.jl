@@ -38,18 +38,18 @@ explore_table(df)
 
 # Specify column types using Pairs (String or Symbol keys)
 explore_table(df,
-    "status" => CategoricalColumn(
+    "status" => ColumnCategorical(
         color_map=Dict("Active" => "#28a745", "Inactive" => "#6c757d", "Pending" => "#ffc107")
     ),
-    :priority => CategoricalColumn(
+    :priority => ColumnCategorical(
         color_map=Dict("High" => "#dc3545", "Medium" => "#fd7e14", "Low" => "#20c997")
     ),
-    :price => NumericColumn(decimal_places=2)
+    :price => ColumnNumeric(decimal_places=2)
 )
 
 # Mix manual and auto-detection
 explore_table(df,
-    :status => CategoricalColumn(color_map=my_colors),
+    :status => ColumnCategorical(color_map=my_colors),
     auto_categorical_threshold=15
 )
 ```

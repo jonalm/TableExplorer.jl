@@ -1,3 +1,26 @@
+# TableExplorer.jl
+
+
+## API
+
+### Main entrypoint
+
+`TableExplorer.jl` exports one main function `explore_table(df)`, which takes a
+`df` table input conforming to the
+[`Table.jl`](https://tables.juliadata.org/stable/) interface. It creates a
+standalone HTML file and opens this file in your default browser.
+
+### Custom Column view
+
+You can customize how the columns are displayed by associating column names to `ColumX` objects. The available `ColumX` objects are:
+
+- `ColumnBoolean`
+- `ColumnCategorical`
+- `ColumnDateTime`
+- `ColumnNumeric`
+- `ColumnText`
+
+```julia
 using TableExplorer
 using DataFrames
 
@@ -21,4 +44,4 @@ explore_table(df,
     "severity" => ColumnText(),
     :boolean => ColumnBoolean()
 )
- 
+```

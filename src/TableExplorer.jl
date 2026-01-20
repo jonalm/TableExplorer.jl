@@ -4,19 +4,19 @@ using JSON
 using Tables
 using ColorSchemes
 using Colors: hex
+using Dates
 
 export explore_table,
     # columns
-    BooleanColumn,
-    CategoricalColumn,
-    DateTimeColumn,
-    NumericalHeatMap,
-    NumericColumn,
-    TextColumn
+    ColumnBoolean,
+    ColumnCategorical,
+    ColumnDateTime,
+    ColumnNumeric,
+    ColumnText
 
 
 include("utils.jl")
-include("columntypes.jl")
+include("column_types.jl")
 include("table_html.jl")
 include("api.jl")
 
