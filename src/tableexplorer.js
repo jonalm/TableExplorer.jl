@@ -1,3 +1,50 @@
+// Custom filter functions for numeric type filtering
+function numericTypeFilter(headerValue, rowValue, rowData, filterParams) {
+    // headerValue is an array of selected types (e.g., ["numerical", "NaN"])
+    if (!headerValue || headerValue.length === 0) return true;
+
+    // Categorize the row value
+    let valueType;
+    if (rowValue === null || rowValue === undefined || rowValue === '') {
+        valueType = "(null)";
+    } else if (rowValue === "NaN") {
+        valueType = "NaN";
+    } else if (rowValue === "Infinity") {
+        valueType = "Infinity";
+    } else if (rowValue === "-Infinity") {
+        valueType = "-Infinity";
+    } else if (typeof rowValue === 'number') {
+        valueType = "numerical";
+    } else {
+        valueType = "numerical";  // Fallback
+    }
+
+    return headerValue.includes(valueType);
+}
+
+function numericTypeSingleFilter(headerValue, rowValue, rowData, filterParams) {
+    // headerValue is a single selected type (e.g., "numerical")
+    if (!headerValue) return true;
+
+    // Categorize the row value
+    let valueType;
+    if (rowValue === null || rowValue === undefined || rowValue === '') {
+        valueType = "(null)";
+    } else if (rowValue === "NaN") {
+        valueType = "NaN";
+    } else if (rowValue === "Infinity") {
+        valueType = "Infinity";
+    } else if (rowValue === "-Infinity") {
+        valueType = "-Infinity";
+    } else if (typeof rowValue === 'number') {
+        valueType = "numerical";
+    } else {
+        valueType = "numerical";  // Fallback
+    }
+
+    return valueType === headerValue;
+}
+
 // Initialize table with data and columns passed from Julia
 function initializeTable(tableData, columns) {
     // Custom sorter that handles missing/null values
@@ -20,9 +67,16 @@ function initializeTable(tableData, columns) {
         return 0;
     };
 
-    // Apply custom sorter to all columns
+    // Apply custom sorter to all columns and register custom filter functions
     columns.forEach(col => {
         col.sorter = customSorter;
+
+        // Register custom filter functions for numeric type filtering
+        if (col.headerFilterFunc === "numericTypeFilter") {
+            col.headerFilterFunc = numericTypeFilter;
+        } else if (col.headerFilterFunc === "numericTypeSingleFilter") {
+            col.headerFilterFunc = numericTypeSingleFilter;
+        }
     });
 
     // Initialize Tabulator

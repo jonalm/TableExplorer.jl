@@ -6,7 +6,7 @@ using Tables
 @testset "Utils Tests" begin
 
     @testset "DEFAULT_CATEGORICAL_PALETTE" begin
-        @test length(TableExplorer.DEFAULT_CATEGORICAL_PALETTE) == 15
+        @test length(TableExplorer.DEFAULT_CATEGORICAL_PALETTE) == 100
         @test all(color -> startswith(color, "#"), TableExplorer.DEFAULT_CATEGORICAL_PALETTE)
         @test all(color -> length(color) == 7, TableExplorer.DEFAULT_CATEGORICAL_PALETTE)
     end
@@ -63,6 +63,42 @@ using Tables
         values = ["X", "Y", "Z"]
         result = TableExplorer.generate_categorical_colors(values)
         @test length(result) == 3
+
+        # Test with missing values
+        values_missing = ["B", "A", missing]
+        result_missing = TableExplorer.generate_categorical_colors(values_missing, palette)
+        @test length(result_missing) == 3
+        @test haskey(result_missing, "A")
+        @test haskey(result_missing, "B")
+        @test haskey(result_missing, "missing")
+        # Missing should be sorted last
+        @test result_missing["A"] == "#ff0000"
+        @test result_missing["B"] == "#00ff00"
+        @test result_missing["missing"] == "#0000ff"
+
+        # Test with nothing values
+        values_nothing = ["B", "A", nothing]
+        result_nothing = TableExplorer.generate_categorical_colors(values_nothing, palette)
+        @test length(result_nothing) == 3
+        @test haskey(result_nothing, "A")
+        @test haskey(result_nothing, "B")
+        @test haskey(result_nothing, "nothing")
+        # Nothing should be sorted last
+        @test result_nothing["A"] == "#ff0000"
+        @test result_nothing["B"] == "#00ff00"
+        @test result_nothing["nothing"] == "#0000ff"
+
+        # Test with both missing and nothing
+        values_both = ["C", missing, "A", nothing, "B"]
+        result_both = TableExplorer.generate_categorical_colors(values_both, palette)
+        @test length(result_both) == 5
+        # Normal values sorted first
+        @test result_both["A"] == "#ff0000"
+        @test result_both["B"] == "#00ff00"
+        @test result_both["C"] == "#0000ff"
+        # Special values sorted last (and wrap around)
+        @test result_both["missing"] == "#ff0000"  # Wraps
+        @test result_both["nothing"] == "#00ff00"  # Wraps
     end
 
     @testset "row_to_dict" begin
@@ -81,24 +117,25 @@ using Tables
         @test result["b"] == "x"
         @test result["c"] == 1.5
 
-        # Test with NaN
+        # Test with NaN - should be converted to string "NaN"
         df_nan = DataFrame(a = [NaN, 1.0], b = [2.0, 3.0])
         row_nan = Tables.rows(df_nan)[1]
         result = TableExplorer.row_to_dict(row_nan, [:a, :b])
-        @test result["a"] === nothing
+        @test result["a"] == "NaN"
         @test result["b"] == 2.0
 
-        # Test with Inf
+        # Test with Inf - should be converted to string "Infinity"
         df_inf = DataFrame(a = [Inf, 1.0], b = [2.0, -Inf])
         row_inf = Tables.rows(df_inf)[1]
         result = TableExplorer.row_to_dict(row_inf, [:a, :b])
-        @test result["a"] === nothing
+        @test result["a"] == "Infinity"
         @test result["b"] == 2.0
 
+        # Test with -Inf - should be converted to string "-Infinity"
         row_inf2 = Tables.rows(df_inf)[2]
         result2 = TableExplorer.row_to_dict(row_inf2, [:a, :b])
         @test result2["a"] == 1.0
-        @test result2["b"] === nothing
+        @test result2["b"] == "-Infinity"
 
         # Test with missing values
         df_missing = DataFrame(a = [missing, 1], b = [2, missing])

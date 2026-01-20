@@ -1,13 +1,16 @@
 using TableExplorer
 using DataFrames
 
+N = 100
 df = DataFrame(
-    status = rand(["Pass", "Fail", "Warning"], 50),
-    severity = rand(["Critical", "High", "Medium", "Low"], 50),
-    score = rand(50) .* 100,
-    boolean = rand(Bool, 50),
-    default_boolean = rand(Bool, 50),
+    status = rand(["Pass", "Fail", "Warning", missing, nothing], N),
+    severity = rand(["Critical", "High", "Medium", "Low", missing, nothing], N),
+    score = rand(N) .* 100,
+    boolean_1 = rand(Bool, N),
+    boolean_2 = rand(Bool, N),
 )
+df.score[ randn(N) .> 1.0 ] .= NaN
+df.score_with_missing = [randn()>2 ? missing : x for x in df.score ]
 
 explore_table(df,
     "status" => ColumnCategorical(
@@ -19,6 +22,6 @@ explore_table(df,
     ),
     :score => ColumnNumeric(decimal_places=3),
     "severity" => ColumnText(),
-    :boolean => ColumnBoolean()
+    :boolean1 => ColumnBoolean()
 )
  

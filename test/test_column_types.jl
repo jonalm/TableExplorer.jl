@@ -35,9 +35,10 @@ using Tables
         # Test defaults
         col = ColumnCategorical()
         @test col.color_map === nothing
-        @test col.search_type == :input
+        @test col.search_type == :dropdown
         @test col.show_colors == true
         @test col.palette == TableExplorer.DEFAULT_CATEGORICAL_PALETTE
+        @test col.multiselect == true  # Default changed to true
 
         # Test with custom color map
         custom_colors = Dict("A" => "#ff0000", "B" => "#00ff00")
@@ -52,6 +53,10 @@ using Tables
         # Test with show_colors=false
         col_no_colors = ColumnCategorical(show_colors=false)
         @test col_no_colors.show_colors == false
+
+        # Test with multiselect=true
+        col_multiselect = ColumnCategorical(multiselect=true)
+        @test col_multiselect.multiselect == true
     end
 
     @testset "ColumnDateTime construction" begin
@@ -71,17 +76,24 @@ using Tables
         @test col.search_type == :dropdown
         @test col.true_label == "✓"
         @test col.false_label == "✗"
+        @test col.multiselect == false
 
         # Test with custom labels
         col_custom = ColumnBoolean(true_label="Yes", false_label="No")
         @test col_custom.true_label == "Yes"
         @test col_custom.false_label == "No"
+
+        # Test with multiselect
+        col_multi = ColumnBoolean(multiselect=true)
+        @test col_multi.multiselect == true
     end
 
     @testset "create_header_filter_config - ColumnText" begin
+        df = DataFrame(name = ["Alice", "Bob"])
+
         # Test regex
         col = ColumnText(search_type=:regex)
-        result = TableExplorer.create_header_filter_config(col)
+        result = TableExplorer.create_header_filter_config(col, df, :name)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == "regex"
@@ -89,7 +101,7 @@ using Tables
 
         # Test exact
         col = ColumnText(search_type=:exact)
-        result = TableExplorer.create_header_filter_config(col)
+        result = TableExplorer.create_header_filter_config(col, df, :name)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == "="
@@ -97,7 +109,7 @@ using Tables
 
         # Test contains
         col = ColumnText(search_type=:contains)
-        result = TableExplorer.create_header_filter_config(col)
+        result = TableExplorer.create_header_filter_config(col, df, :name)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == "like"
@@ -105,8 +117,10 @@ using Tables
     end
 
     @testset "create_header_filter_config - ColumnNumeric" begin
+        df = DataFrame(value = [1.5, 2.5])
+
         col = ColumnNumeric()
-        result = TableExplorer.create_header_filter_config(col)
+        result = TableExplorer.create_header_filter_config(col, df, :value)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == "regex"
@@ -114,27 +128,161 @@ using Tables
 
         # Range type
         col_range = ColumnNumeric(search_type=:range)
-        result = TableExplorer.create_header_filter_config(col_range)
+        result = TableExplorer.create_header_filter_config(col_range, df, :value)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == ">="
         @test result.placeholder == "Min value..."
+
+        # Dropdown type with only numerical values
+        col_dropdown = ColumnNumeric(search_type=:dropdown)
+        result = TableExplorer.create_header_filter_config(col_dropdown, df, :value)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "list"
+        @test result.filter_func == "numericTypeFilter"  # Default multiselect=true
+        @test result.multiselect == true
+        @test result.placeholder == "Select..."
+        @test length(result.values) == 1  # Only "numerical"
+        @test result.values[1]["label"] == "numerical"
+        @test result.values[1]["value"] == "numerical"
+
+        # Dropdown type with NaN values
+        df_nan = DataFrame(value = [1.5, NaN, 2.5])
+        result_nan = TableExplorer.create_header_filter_config(col_dropdown, df_nan, :value)
+        @test length(result_nan.values) == 2  # "numerical" and "NaN"
+        labels = [v["label"] for v in result_nan.values]
+        @test "numerical" in labels
+        @test "NaN" in labels
+
+        # Dropdown type with Infinity values
+        df_inf = DataFrame(value = [1.5, Inf, -Inf, 2.5])
+        result_inf = TableExplorer.create_header_filter_config(col_dropdown, df_inf, :value)
+        @test length(result_inf.values) == 3  # "numerical", "Infinity", "-Infinity"
+        labels = [v["label"] for v in result_inf.values]
+        @test "numerical" in labels
+        @test "Infinity" in labels
+        @test "-Infinity" in labels
+
+        # Dropdown type with missing/nothing values
+        df_null = DataFrame(value = [1.5, missing, nothing, 2.5])
+        result_null = TableExplorer.create_header_filter_config(col_dropdown, df_null, :value)
+        @test length(result_null.values) == 2  # "numerical" and "(null)"
+        labels = [v["label"] for v in result_null.values]
+        @test "numerical" in labels
+        @test "(null)" in labels
+
+        # Dropdown type with all special values
+        df_all = DataFrame(value = [1.5, NaN, Inf, -Inf, missing, nothing, 2.5])
+        result_all = TableExplorer.create_header_filter_config(col_dropdown, df_all, :value)
+        @test length(result_all.values) == 5  # All types
+        labels = [v["label"] for v in result_all.values]
+        @test "numerical" in labels
+        @test "NaN" in labels
+        @test "Infinity" in labels
+        @test "-Infinity" in labels
+        @test "(null)" in labels
+
+        # Test single select mode
+        col_single = ColumnNumeric(search_type=:dropdown, multiselect=false)
+        result_single = TableExplorer.create_header_filter_config(col_single, df_all, :value)
+        @test result_single.filter_func == "numericTypeSingleFilter"
+        @test result_single.multiselect == false
     end
 
     @testset "create_header_filter_config - ColumnCategorical" begin
-        col = ColumnCategorical()
-        result = TableExplorer.create_header_filter_config(col)
-        @test result isa TableExplorer.HeaderFilterConfig
-        @test result.filter_type == "input"
-        @test result.filter_func == "regex"
-        @test result.placeholder == "Regex search..."
+        df = DataFrame(status = ["Active", "Inactive", "Pending"])
 
+        # Test dropdown (default - now multiselect=true)
+        col = ColumnCategorical()
+        result = TableExplorer.create_header_filter_config(col, df, :status)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "list"
+        @test result.filter_func == "in"  # Changed to "in" since default is multiselect=true
+        @test result.placeholder == "Select..."
+        @test result.values !== nothing
+        @test length(result.values) == 3
+        @test all(v -> haskey(v, "label") && haskey(v, "value"), result.values)
+        @test result.multiselect == true  # Default is multiselect
+
+        # Test exact search
         col_exact = ColumnCategorical(search_type=:exact)
-        result = TableExplorer.create_header_filter_config(col_exact)
+        result = TableExplorer.create_header_filter_config(col_exact, df, :status)
         @test result isa TableExplorer.HeaderFilterConfig
         @test result.filter_type == "input"
         @test result.filter_func == "="
         @test result.placeholder == "Exact match..."
+        @test result.values === nothing
+
+        # Test input search
+        col_input = ColumnCategorical(search_type=:input)
+        result = TableExplorer.create_header_filter_config(col_input, df, :status)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "regex"
+        @test result.placeholder == "Regex search..."
+        @test result.values === nothing
+
+        # Test with Missing values
+        df_missing = DataFrame(status = ["Active", missing, "Inactive"])
+        result_missing = TableExplorer.create_header_filter_config(col, df_missing, :status)
+        @test result_missing.values !== nothing
+        @test length(result_missing.values) == 3
+        @test any(v -> v["label"] == "(null)", result_missing.values)
+
+        # Test with Nothing values
+        df_nothing = DataFrame(status = ["Active", nothing, "Inactive"])
+        result_nothing = TableExplorer.create_header_filter_config(col, df_nothing, :status)
+        @test result_nothing.values !== nothing
+        @test length(result_nothing.values) == 3
+        @test any(v -> v["label"] == "(null)", result_nothing.values)
+
+        # Test with both Missing and Nothing - should only create one (null) option
+        df_both = DataFrame(status = ["Active", missing, nothing, "Inactive"])
+        result_both = TableExplorer.create_header_filter_config(col, df_both, :status)
+        @test result_both.values !== nothing
+        @test length(result_both.values) == 3  # Active, Inactive, (null) - not 4!
+        @test any(v -> v["label"] == "(null)", result_both.values)
+        @test count(v -> v["label"] == "(null)", result_both.values) == 1  # Only one null entry
+
+        # Test explicit multiselect
+        col_multiselect = ColumnCategorical(multiselect=true)
+        result_multi = TableExplorer.create_header_filter_config(col_multiselect, df, :status)
+        @test result_multi.multiselect == true
+        @test result_multi.filter_func == "in"
+
+        # Test single select (explicit)
+        col_single = ColumnCategorical(multiselect=false)
+        result_single = TableExplorer.create_header_filter_config(col_single, df, :status)
+        @test result_single.multiselect == false
+        @test result_single.filter_func == "="
+    end
+
+    @testset "create_header_filter_config - ColumnBoolean" begin
+        df = DataFrame(flag = [true, false, true])
+
+        # Test dropdown (default)
+        col = ColumnBoolean()
+        result = TableExplorer.create_header_filter_config(col, df, :flag)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "list"
+        @test result.filter_func == "="
+        @test result.placeholder == "Select..."
+        @test result.values !== nothing
+        @test length(result.values) == 2
+        @test result.multiselect == false
+
+        # Test multiselect
+        col_multi = ColumnBoolean(multiselect=true)
+        result_multi = TableExplorer.create_header_filter_config(col_multi, df, :flag)
+        @test result_multi.multiselect == true
+        @test result_multi.filter_func == "in"
+        @test result_multi.filter_type == "list"
+
+        # Test with custom labels
+        col_custom = ColumnBoolean(true_label="Yes", false_label="No")
+        result_custom = TableExplorer.create_header_filter_config(col_custom, df, :flag)
+        @test any(v -> v["label"] == "Yes", result_custom.values)
+        @test any(v -> v["label"] == "No", result_custom.values)
     end
 
     @testset "create_formatter - ColumnText" begin
@@ -157,10 +305,17 @@ using Tables
         result = TableExplorer.create_formatter(col_auto, df, :value)
         @test occursin("toFixed(2)", result)
 
-        # Test with integers
+        # Test with integers - should use String() not toLocaleString()
         df_int = DataFrame(count = [1, 2, 3])
         result_int = TableExplorer.create_formatter(col_auto, df_int, :count)
-        @test occursin("toLocaleString()", result_int)
+        @test occursin("String(val)", result_int)
+        @test !occursin("toLocaleString()", result_int)
+
+        # Test with Union{Missing, Float64} - should use toFixed() for consistent decimal separator
+        df_missing = DataFrame(value = [1.23, missing, 4.56])
+        result_missing = TableExplorer.create_formatter(col_auto, df_missing, :value)
+        @test occursin("toFixed", result_missing)
+        @test !occursin("toLocaleString()", result_missing)
     end
 
     @testset "create_formatter - ColumnCategorical" begin
@@ -236,7 +391,7 @@ using Tables
     end
 
     @testset "create_column_config" begin
-        df = DataFrame(value = [1.5, 2.5], name = ["A", "B"])
+        df = DataFrame(value = [1.5, 2.5], name = ["A", "B"], status = ["Active", "Inactive"])
 
         # Test basic config
         col_text = ColumnText()
@@ -252,6 +407,24 @@ using Tables
         config_num = TableExplorer.create_column_config(df, :value, col_num)
         @test config_num["align"] == "right"
         @test haskey(config_num, "formatter")
+
+        # Test with categorical column (dropdown - default is now multiselect)
+        col_cat = ColumnCategorical()
+        config_cat = TableExplorer.create_column_config(df, :status, col_cat)
+        @test config_cat["headerFilter"] == "list"
+        @test haskey(config_cat, "headerFilterParams")
+        @test haskey(config_cat["headerFilterParams"], "values")
+        @test length(config_cat["headerFilterParams"]["values"]) == 2
+        @test haskey(config_cat["headerFilterParams"], "multiselect")  # Present since default is multiselect=true
+        @test config_cat["headerFilterParams"]["multiselect"] == true
+        @test config_cat["headerFilterFunc"] == "in"
+
+        # Test with categorical column (explicit single select)
+        col_cat_single = ColumnCategorical(multiselect=false)
+        config_cat_single = TableExplorer.create_column_config(df, :status, col_cat_single)
+        @test config_cat_single["headerFilter"] == "list"
+        @test !haskey(config_cat_single["headerFilterParams"], "multiselect")  # Not present for single select
+        @test config_cat_single["headerFilterFunc"] == "="
     end
 
     @testset "auto_detect_column_type" begin

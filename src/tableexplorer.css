@@ -26,7 +26,7 @@ body {
 
 .controls button {
     padding: 8px 16px;
-    background: #007bff;
+    background: #6b7280;
     color: white;
     border: none;
     border-radius: 4px;
@@ -35,7 +35,7 @@ body {
 }
 
 .controls button:hover {
-    background: #0056b3;
+    background: #4b5563;
 }
 
 .info {
@@ -51,7 +51,7 @@ body {
 
 .column-toggle-btn {
     padding: 8px 16px;
-    background: #28a745;
+    background: #6b7280;
     color: white;
     border: none;
     border-radius: 4px;
@@ -60,7 +60,7 @@ body {
 }
 
 .column-toggle-btn:hover {
-    background: #218838;
+    background: #4b5563;
 }
 
 .column-menu {
@@ -106,14 +106,14 @@ body {
 
 /* Custom Tabulator styling */
 .tabulator .tabulator-header {
-    background-color: #4CAF50;
+    background-color: #374151;
     color: white;
     font-weight: bold;
 }
 
 .tabulator .tabulator-header .tabulator-col {
-    background-color: #4CAF50;
-    border-right: 1px solid #45a049;
+    background-color: #374151;
+    border-right: 1px solid #4b5563;
 }
 
 .tabulator .tabulator-header .tabulator-col-title {
@@ -125,7 +125,7 @@ body {
 }
 
 .tabulator-row:hover {
-    background-color: #e8f5e9 !important;
+    background-color: #f3f4f6 !important;
 }
 
 /* Filter input styling */

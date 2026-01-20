@@ -7,6 +7,7 @@ using TableExplorer
     include("test_column_types.jl")
     include("test_table_html.jl")
     include("test_api.jl")
+    include("test_html_generation.jl")
 end
 
 

@@ -8,6 +8,8 @@ All subtypes should be prefixed with `Column` e.g. see `ColumnText` below
 """
 abstract type ColumnType end
 
+
+
 """
     ColumnText(; search_type=:regex)
 
@@ -46,19 +48,21 @@ explore_table(df,
 Base.@kwdef struct ColumnNumeric <: ColumnType
     decimal_places::Union{Int, Nothing} = nothing
     alignment::Symbol = :right
-    search_type::Symbol = :input
+    search_type::Symbol = :input  # :input, :range, or :dropdown
+    multiselect::Bool = true  # Only applies when search_type == :dropdown
 end
 
 """
-    ColumnCategorical(; color_map=nothing, search_type=:input, show_colors=true, palette=DEFAULT_CATEGORICAL_PALETTE)
+    ColumnCategorical(; color_map=nothing, search_type=:dropdown, show_colors=true, palette=DEFAULT_CATEGORICAL_PALETTE, multiselect=false)
 
 Column type for categorical data with optional color coding.
 
 # Fields
 - `color_map::Union{Dict{String,String}, Nothing}`: Manual color mapping (value => hex color)
-- `search_type::Symbol`: Type of header filter (`:input`, `:dropdown`, `:exact`)
+- `search_type::Symbol`: Type of header filter (`:dropdown`, `:input`, `:exact`)
 - `show_colors::Bool`: Whether to apply cell background colors
 - `palette::Vector{String}`: Color palette for auto-generation if color_map not provided
+- `multiselect::Bool`: Whether to allow multiple selections in dropdown filter (default: false)
 
 # Examples
 ```julia
@@ -71,13 +75,17 @@ explore_table(df,
 
 # Auto-generated colors
 explore_table(df, "category" => ColumnCategorical())
+
+# With multiselect enabled
+explore_table(df, "status" => ColumnCategorical(multiselect=true))
 ```
 """
 Base.@kwdef struct ColumnCategorical <: ColumnType
     color_map::Union{Dict{String, String}, Nothing} = nothing
-    search_type::Symbol = :input
+    search_type::Symbol = :dropdown
     show_colors::Bool = true
     palette::Vector{String} = DEFAULT_CATEGORICAL_PALETTE
+    multiselect::Bool = true
 end
 
 """
@@ -103,7 +111,7 @@ Base.@kwdef struct ColumnDateTime <: ColumnType
 end
 
 """
-    ColumnBoolean(; search_type=:dropdown, true_label="✓", false_label="✗")
+    ColumnBoolean(; search_type=:dropdown, true_label="✓", false_label="✗", multiselect=false)
 
 Column type for boolean data.
 
@@ -111,18 +119,23 @@ Column type for boolean data.
 - `search_type::Symbol`: Type of header filter (`:dropdown`, `:exact`, `:input`)
 - `true_label::String`: Display label for true values
 - `false_label::String`: Display label for false values
+- `multiselect::Bool`: Whether to allow multiple selections in dropdown filter (default: false)
 
 # Examples
 ```julia
 explore_table(df,
     "is_active" => ColumnBoolean(true_label="Yes", false_label="No")
 )
+
+# With multiselect enabled (allows selecting both true and false)
+explore_table(df, "flag" => ColumnBoolean(multiselect=true))
 ```
 """
 Base.@kwdef struct ColumnBoolean <: ColumnType
     search_type::Symbol = :dropdown
     true_label::String = "✓"
     false_label::String = "✗"
+    multiselect::Bool = false
 end
 
 
@@ -132,24 +145,36 @@ end
 Configuration for column header filters in Tabulator.
 
 # Fields
-- `filter_type::String`: Type of filter widget (e.g., "input", "select")
+- `filter_type::String`: Type of filter widget (e.g., "input", "list")
 - `filter_func::String`: Tabulator filter function name (e.g., "regex", "=", "like", ">=")
 - `placeholder::String`: Placeholder text for filter input
+- `values::Union{Vector, Nothing}`: Optional list of values for dropdown filters
+- `multiselect::Bool`: Whether to allow multiple selections in dropdown (default: false)
 """
 struct HeaderFilterConfig
     filter_type::String
     filter_func::String
     placeholder::String
+    values::Union{Vector, Nothing}
+    multiselect::Bool
 end
 
+# Convenience constructor for configs without values
+HeaderFilterConfig(filter_type::String, filter_func::String, placeholder::String) =
+    HeaderFilterConfig(filter_type, filter_func, placeholder, nothing, false)
+
+# Convenience constructor for configs with values but no multiselect
+HeaderFilterConfig(filter_type::String, filter_func::String, placeholder::String, values) =
+    HeaderFilterConfig(filter_type, filter_func, placeholder, values, false)
+
 
 """
-    create_header_filter_config(col_type::ColumnType)::HeaderFilterConfig
+    create_header_filter_config(col_type::ColumnType, table, colname)::HeaderFilterConfig
 
 Create header filter configuration for a column type.
-Returns a HeaderFilterConfig with filter_type, filter_func, and placeholder.
+Returns a HeaderFilterConfig with filter_type, filter_func, placeholder, and optional values for dropdowns.
 """
-function create_header_filter_config(col_type::ColumnText)::HeaderFilterConfig
+function create_header_filter_config(col_type::ColumnText, _table, _colname)::HeaderFilterConfig
     if col_type.search_type == :regex
         return HeaderFilterConfig("input", "regex", "Regex search...")
     elseif col_type.search_type == :exact
@@ -161,17 +186,102 @@ function create_header_filter_config(col_type::ColumnText)::HeaderFilterConfig
     end
 end
 
-function create_header_filter_config(col_type::ColumnNumeric)::HeaderFilterConfig
-    if col_type.search_type == :range
+function create_header_filter_config(col_type::ColumnNumeric, table, colname)::HeaderFilterConfig
+    if col_type.search_type == :dropdown
+        # Detect which value types exist in the column
+        cols = Tables.columns(table)
+        col_data = Tables.getcolumn(cols, colname)
+
+        has_numerical = false
+        has_nan = false
+        has_inf = false
+        has_neg_inf = false
+        has_null = false
+
+        for val in col_data
+            if ismissing(val) || val === nothing
+                has_null = true
+            elseif val isa AbstractFloat
+                if isnan(val)
+                    has_nan = true
+                elseif isinf(val)
+                    if val > 0
+                        has_inf = true
+                    else
+                        has_neg_inf = true
+                    end
+                else
+                    has_numerical = true
+                end
+            elseif val isa Number
+                has_numerical = true
+            end
+        end
+
+        # Build dropdown options based on what exists in the data
+        values = Vector{Dict{String, Any}}()
+
+        if has_numerical
+            push!(values, Dict("label" => "numerical", "value" => "numerical"))
+        end
+        if has_nan
+            push!(values, Dict("label" => "NaN", "value" => "NaN"))
+        end
+        if has_inf
+            push!(values, Dict("label" => "Infinity", "value" => "Infinity"))
+        end
+        if has_neg_inf
+            push!(values, Dict("label" => "-Infinity", "value" => "-Infinity"))
+        end
+        if has_null
+            push!(values, Dict("label" => "(null)", "value" => "(null)"))
+        end
+
+        # Use custom filter function
+        filter_func = col_type.multiselect ? "numericTypeFilter" : "numericTypeSingleFilter"
+        return HeaderFilterConfig("list", filter_func, "Select...", values, col_type.multiselect)
+    elseif col_type.search_type == :range
         return HeaderFilterConfig("input", ">=", "Min value...")  # TODO: Implement proper range filter
     else
         return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
-function create_header_filter_config(col_type::ColumnCategorical)::HeaderFilterConfig
+function create_header_filter_config(col_type::ColumnCategorical, table, colname)::HeaderFilterConfig
     if col_type.search_type == :dropdown
-        return HeaderFilterConfig("input", "=", "Select...")  # TODO: Implement dropdown
+        # Extract unique values from the column, including Missing/Nothing
+        cols = Tables.columns(table)
+        col_data = Tables.getcolumn(cols, colname)
+
+        # Collect unique values, preserving missing and nothing
+        unique_vals = unique(col_data)
+
+        # Track if we've seen a null value (missing or nothing)
+        has_null = false
+
+        # Convert to strings for display, handling special values
+        # Filter out duplicates where both missing and nothing exist (they're both null)
+        values = Vector{Dict{String, Any}}()
+        for val in unique_vals
+            if ismissing(val) || val === nothing
+                # Both missing and nothing serialize to null, so only add one entry
+                if !has_null
+                    push!(values, Dict("label" => "(null)", "value" => nothing))
+                    has_null = true
+                end
+            else
+                str_val = string(val)
+                push!(values, Dict("label" => str_val, "value" => str_val))
+            end
+        end
+
+        # Sort by label for consistent display
+        sort!(values, by = v -> v["label"])
+
+        # Use "in" filter function for multiselect, "=" for single select
+        filter_func = col_type.multiselect ? "in" : "="
+
+        return HeaderFilterConfig("list", filter_func, "Select...", values, col_type.multiselect)
     elseif col_type.search_type == :exact
         return HeaderFilterConfig("input", "=", "Exact match...")
     else
@@ -179,7 +289,7 @@ function create_header_filter_config(col_type::ColumnCategorical)::HeaderFilterC
     end
 end
 
-function create_header_filter_config(col_type::ColumnDateTime)::HeaderFilterConfig
+function create_header_filter_config(col_type::ColumnDateTime, _table, _colname)::HeaderFilterConfig
     if col_type.search_type == :range
         return HeaderFilterConfig("input", ">=", "Date...")  # TODO: Implement date range
     else
@@ -187,9 +297,16 @@ function create_header_filter_config(col_type::ColumnDateTime)::HeaderFilterConf
     end
 end
 
-function create_header_filter_config(col_type::ColumnBoolean)::HeaderFilterConfig
+function create_header_filter_config(col_type::ColumnBoolean, _table, _colname)::HeaderFilterConfig
     if col_type.search_type == :dropdown
-        return HeaderFilterConfig("input", "=", "True/False...")  # TODO: Implement dropdown
+        # Create dropdown with True/False options
+        values = [
+            Dict("label" => col_type.true_label, "value" => "true"),
+            Dict("label" => col_type.false_label, "value" => "false")
+        ]
+        # Use "in" filter function for multiselect, "=" for single select
+        filter_func = col_type.multiselect ? "in" : "="
+        return HeaderFilterConfig("list", filter_func, "Select...", values, col_type.multiselect)
     else
         return HeaderFilterConfig("input", "regex", "Regex search...")
     end
@@ -209,17 +326,44 @@ end
 function create_formatter(col_type::ColumnNumeric, table, colname)
     if !isnothing(col_type.decimal_places)
         dp = col_type.decimal_places
-        return "function(cell) { var val = cell.getValue(); return val == null ? '' : val.toFixed($dp); }"
+        return """function(cell) {
+          var val = cell.getValue();
+          if (val == null || val === '') return '';
+          if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity
+          return val.toFixed($dp);
+        }"""
     else
         # Get column data to determine element type
         cols = Tables.columns(table)
         col_data = Tables.getcolumn(cols, colname)
         eltype_col = eltype(col_data)
 
-        if eltype_col <: AbstractFloat
-            return "function(cell) { var val = cell.getValue(); return val == null ? '' : val.toFixed(2); }"
+        # Check if the column contains floating point numbers
+        # This includes Union{Missing, Float64}, Union{Nothing, Float64}, etc.
+        has_float = any(col_data) do val
+            !ismissing(val) && val !== nothing && val isa AbstractFloat
+        end
+
+        if has_float || eltype_col <: AbstractFloat
+            # Use toFixed for floating point to ensure period decimal separator
+            return """function(cell) {
+              var val = cell.getValue();
+              if (val == null || val === '') return '';
+              if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity
+              if (typeof val === 'number') {
+                // Use toFixed to ensure period decimal separator regardless of locale
+                return val.toFixed(2);
+              }
+              return val;
+            }"""
         else
-            return "function(cell) { var val = cell.getValue(); return val == null ? '' : val.toLocaleString(); }"
+            # For integers, just convert to string (no decimal point needed)
+            return """function(cell) {
+              var val = cell.getValue();
+              if (val == null || val === '') return '';
+              if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity
+              return String(val);
+            }"""
         end
     end
 end
@@ -288,10 +432,20 @@ function create_column_config(table, colname, col_type::ColumnType)
     )
 
     # Add header filter configuration
-    filter_config = create_header_filter_config(col_type)
+    filter_config = create_header_filter_config(col_type, table, colname)
     config["headerFilter"] = filter_config.filter_type
     config["headerFilterFunc"] = filter_config.filter_func
     config["headerFilterPlaceholder"] = filter_config.placeholder
+
+    # Add dropdown values if present
+    if !isnothing(filter_config.values)
+        params = Dict{String, Any}("values" => filter_config.values)
+        # Add multiselect if enabled
+        if filter_config.multiselect
+            params["multiselect"] = true
+        end
+        config["headerFilterParams"] = params
+    end
 
     # Add formatter if needed
     formatter = create_formatter(col_type, table, colname)

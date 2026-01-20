@@ -1,10 +1,8 @@
 
+_prepend(x,y) = x*y
+_prepend(x) = Base.Fix1(_prepend, x)
 const DEFAULT_CATEGORICAL_PALETTE = let
-    # Sample 15 evenly spaced colors from batlowWS colorscheme
-    n_colors = 15
-    scheme = ColorSchemes.batlowWS
-    indices = range(0, 1, length=n_colors)
-    [string("#", hex(get(scheme, idx))) for idx in indices]
+    map(_prepend("#") ∘ hex, ColorSchemes.batlowWS)
 end
 
 """
@@ -30,6 +28,7 @@ end
 
 Generate deterministic color mapping for categorical values.
 Values are sorted alphabetically to ensure consistent color assignment across sessions.
+Special values (missing, nothing) are sorted to the end.
 
 # Arguments
 - `unique_values`: Collection of unique values to assign colors
@@ -39,7 +38,15 @@ Values are sorted alphabetically to ensure consistent color assignment across se
 Dictionary mapping string values to hex colors
 """
 function generate_categorical_colors(unique_values, palette=DEFAULT_CATEGORICAL_PALETTE)
-    sorted_values = sort(collect(unique_values))
+    vals = collect(unique_values)
+
+    # Separate normal values from special values (missing/nothing) for sorting
+    normal_vals = filter(v -> !ismissing(v) && v !== nothing, vals)
+    special_vals = filter(v -> ismissing(v) || v === nothing, vals)
+
+    # Sort normal values and append special values at the end
+    sorted_values = vcat(sort(normal_vals), special_vals)
+
     pairs = map(Base.Fix2(assign_color_to_value, palette), enumerate(sorted_values))
     return Dict{String, String}(pairs)
 end
@@ -101,12 +108,26 @@ Convert a single table row to a dictionary with string keys, handling special nu
 - `colnames`: Collection of column names for the row
 
 # Returns
-Dictionary mapping column names (as strings) to values, with NaN/Inf converted to nothing
+Dictionary mapping column names (as strings) to values, with special handling:
+- NaN → "NaN" (string)
+- Inf → "Infinity" (string)
+- -Inf → "-Infinity" (string)
+- missing/nothing → nothing (becomes JSON null)
 """
 function row_to_dict(row, colnames)
     Dict{String, Any}(
         String(colname) => let val = Tables.getcolumn(row, colname)
-            (val isa AbstractFloat && (isnan(val) || isinf(val))) ? nothing : val
+            if val isa AbstractFloat
+                if isnan(val)
+                    "NaN"
+                elseif isinf(val)
+                    val > 0 ? "Infinity" : "-Infinity"
+                else
+                    val
+                end
+            else
+                val
+            end
         end
         for colname in colnames
     )
