@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataFrame Table View</title>
+
+    <!-- Tabulator CSS -->
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <style>
+        {{CSS_CONTENT}}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <button onclick="clearFilters()">Clear All Filters</button>
+            <button onclick="exportCSV()">Export as CSV</button>
+            <button onclick="exportJSON()">Export as JSON</button>
+            <div class="column-toggle">
+                <button class="column-toggle-btn" onclick="toggleColumnMenu()">Show/Hide Columns</button>
+                <div id="columnMenu" class="column-menu"></div>
+            </div>
+            <div class="info">
+                <strong>Rows:</strong> <span id="activeRows">{{NROWS}}</span> / {{NROWS}} | <strong>Columns:</strong> {{NCOLS}}
+            </div>
+        </div>
+
+        <div id="table"></div>
+    </div>
+
+    <!-- Tabulator JavaScript -->
+    <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script>
+        {{JS_CONTENT}}
+    </script>
+
+    <script>
+        // Table data and columns from Julia
+        const tableData = {{TABLE_DATA}};
+        const columns = {{COLUMNS}};
+
+        // Initialize the table
+        window.tabulatorTable = initializeTable(tableData, columns);
+
+        // Populate column menu
+        populateColumnMenu(columns);
+
+        // Setup filter logging
+        setupFilterLogging(window.tabulatorTable);
+    </script>
+</body>
+</html>

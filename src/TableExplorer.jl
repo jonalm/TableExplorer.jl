@@ -1,8 +1,24 @@
 module TableExplorer
 
-include("fzf_scoring.jl")
-export fzf_score
+using JSON
+using Tables
+using ColorSchemes
+using Colors: hex
 
-greet() = print("Hello World!")
+export explore_table,
+    # columns
+    BooleanColumn,
+    CategoricalColumn,
+    DateTimeColumn,
+    NumericalHeatMap,
+    NumericColumn,
+    TextColumn
 
-end # module TableExplorer
+
+include("utils.jl")
+include("columntypes.jl")
+include("table_html.jl")
+include("api.jl")
+
+
+end
