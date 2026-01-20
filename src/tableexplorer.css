@@ -138,3 +138,9 @@ body {
     padding: 4px 6px;
     font-size: 12px;
 }
+
+/* Hide default sort arrow for all columns (using custom inline arrows instead) */
+.tabulator-col .tabulator-col-sorter,
+.tabulator-col .tabulator-arrow {
+    display: none !important;
+}

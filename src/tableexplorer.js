@@ -92,6 +92,35 @@ function initializeTable(tableData, columns) {
         ]
     });
 
+    // Update sort arrows for heatmap columns when sorting changes
+    table.on("dataSorted", function(sorters, rows){
+        // Reset all arrows to neutral circle
+        document.querySelectorAll('.sort-arrow').forEach(arrow => {
+            arrow.textContent = "○";
+        });
+
+        // Update arrow for sorted column(s)
+        if (sorters.length > 0) {
+            sorters.forEach(sorter => {
+                const field = sorter.field;
+                const dir = sorter.dir;
+                const arrow = dir === "asc" ? "▲" : "▼";
+
+                // Find the column header and update its arrow
+                const columns = table.getColumns();
+                columns.forEach(col => {
+                    if (col.getField() === field) {
+                        const headerElement = col.getElement();
+                        const arrowElement = headerElement.querySelector('.sort-arrow');
+                        if (arrowElement) {
+                            arrowElement.textContent = arrow;
+                        }
+                    }
+                });
+            });
+        }
+    });
+
     return table;
 }
 

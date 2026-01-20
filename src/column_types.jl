@@ -555,6 +555,21 @@ function create_column_config(table, colname, col_type::ColumnType)
         "headerSort" => true
     )
 
+    # Add title formatter with dynamic sort arrow for ALL column types
+    if col_type isa ColumnHeatmap
+        # Heatmap columns: rotated header with inline arrow
+        config["titleFormatter"] = """function(cell) {
+          var value = cell.getValue();
+          return '<span class="rotated-header" style="display: block; transform: rotate(-90deg); transform-origin: left center; white-space: nowrap; margin-top: 90px; margin-left: 5px;"><span class="sort-arrow">○</span> ' + value + '</span>';
+        }"""
+    else
+        # Regular columns: normal header with inline arrow
+        config["titleFormatter"] = """function(cell) {
+          var value = cell.getValue();
+          return '<span class="sort-arrow">○</span> ' + value;
+        }"""
+    end
+
     # Special handling for ColumnHeatmap
     if col_type isa ColumnHeatmap
         # Set fixed width to match row height (creating square cells)
@@ -563,11 +578,8 @@ function create_column_config(table, colname, col_type::ColumnType)
         config["maxWidth"] = 40
         config["resizable"] = false
 
-        # Add title formatter to rotate header text 90 degrees (first letter at bottom)
-        config["titleFormatter"] = """function(cell) {
-          var value = cell.getValue();
-          return '<span style="display: block; transform: rotate(-90deg); transform-origin: left center; white-space: nowrap; margin-top: 90px; margin-left: 5px;">' + value + '</span>';
-        }"""
+        # Add CSS class to identify heatmap columns
+        config["cssClass"] = "heatmap-column"
 
         # Skip filter configuration for heatmap columns
     else
