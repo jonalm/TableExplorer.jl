@@ -45,7 +45,7 @@ function generate_categorical_colors(unique_values, palette=DEFAULT_CATEGORICAL_
 end
 
 function open_in_browser(path)
-    if Sys.isapple()
+    @static if Sys.isapple()
         run(`open $path`)
     elseif Sys.iswindows()
         run(`cmd /c start "" $path`)
