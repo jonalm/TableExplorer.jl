@@ -502,7 +502,6 @@ using Tables
         @test col.min_value === nothing
         @test col.max_value === nothing
         @test col.alignment == :center
-        @test col.search_type == :input
         @test col.palette == TableExplorer.VIRIDIS_PALETTE
 
         # Test with explicit min/max
@@ -518,35 +517,19 @@ using Tables
         custom_palette = ["#000000", "#ffffff"]
         col_palette = ColumnHeatmap(palette=custom_palette)
         @test col_palette.palette == custom_palette
-
-        # Test with dropdown search type
-        col_dropdown = ColumnHeatmap(search_type=:dropdown)
-        @test col_dropdown.search_type == :dropdown
     end
 
     @testset "create_header_filter_config - ColumnHeatmap" begin
         df = DataFrame(value = [1.5, 2.5, 3.5])
 
-        # Test input filter (default)
+        # ColumnHeatmap has no filter
         col = ColumnHeatmap()
         result = TableExplorer.create_header_filter_config(col, df, :value)
         @test result isa TableExplorer.HeaderFilterConfig
-        @test result.filter_type == "input"
-        @test result.filter_func == "regex"
-        @test result.placeholder == "Regex search..."
-
-        # Test dropdown filter
-        col_dropdown = ColumnHeatmap(search_type=:dropdown)
-        result = TableExplorer.create_header_filter_config(col_dropdown, df, :value)
-        @test result isa TableExplorer.HeaderFilterConfig
-        @test result.filter_type == "list"
-        @test result.filter_func == "numericTypeFilter"
-        @test result.placeholder == "Select..."
-
-        # Test with NaN/Inf values
-        df_special = DataFrame(value = [1.5, NaN, Inf, -Inf, missing])
-        result_special = TableExplorer.create_header_filter_config(col_dropdown, df_special, :value)
-        @test length(result_special.values) == 5  # numerical, NaN, Infinity, -Infinity, (null)
+        @test result.filter_type == ""
+        @test result.filter_func == ""
+        @test result.placeholder == ""
+        @test result.values === nothing
     end
 
     @testset "create_formatter - ColumnHeatmap" begin

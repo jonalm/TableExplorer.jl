@@ -114,10 +114,12 @@ body {
 .tabulator .tabulator-header .tabulator-col {
     background-color: #374151;
     border-right: 1px solid #4b5563;
+    overflow: visible !important;
 }
 
 .tabulator .tabulator-header .tabulator-col-title {
     color: white;
+    overflow: visible !important;
 }
 
 .tabulator-row.tabulator-row-even {

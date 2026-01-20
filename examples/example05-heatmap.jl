@@ -39,14 +39,14 @@ explore_table(df,
     # Explicit range (0-100)
     :sales_score => ColumnHeatmap(min_value=0.0, max_value=100.0),
 
-    # Heatmap with dropdown filter (to filter numerical/NaN/Inf)
-    :performance => ColumnHeatmap(search_type=:dropdown),
+    # Heatmap showing special values (NaN, Inf as gray)
+    :performance => ColumnHeatmap(),
 
     # Another auto-range heatmap
     :profit_margin => ColumnHeatmap(),
 
-    # Heatmap with custom alignment
-    :satisfaction => ColumnHeatmap(alignment=:left),
+    # Heatmap with custom alignment (not visible since no text)
+    :satisfaction => ColumnHeatmap(alignment=:center),
 
     # Regular categorical for comparison
     :category => ColumnCategorical(),

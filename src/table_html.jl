@@ -119,13 +119,41 @@ function table_html(
 
     columns_json = "[" * join(config_to_json.(column_configs), ", ") * "]"
 
+    # Calculate dynamic header height for ColumnHeatmap columns
+    heatmap_col_names = String[]
+    for colname in colnames
+        col_type = get_or_detect_column_type(table, colname, col_type_dict, auto_categorical_threshold)
+        if col_type isa ColumnHeatmap
+            push!(heatmap_col_names, String(colname))
+        end
+    end
+
+    # Calculate header height based on longest column name (with buffer)
+    # Assume ~8px per character width, add 40px buffer for padding and rotation
+    max_header_height = if isempty(heatmap_col_names)
+        60  # Default height if no heatmap columns
+    else
+        max_name_length = maximum(length, heatmap_col_names)
+        max_name_length * 8 + 40
+    end
+
+    # Custom CSS for dynamic header height
+    custom_css = """
+    .tabulator .tabulator-header {
+        min-height: $(max_header_height)px !important;
+    }
+    .tabulator .tabulator-col {
+        min-height: $(max_header_height)px !important;
+    }
+    """
+
     # Load static files
     static_files = ["tableexplorer_template.html", "tableexplorer.css", "tableexplorer.js"]
     template, css_content, js_content = [read(joinpath(@__DIR__, f), String) for f in static_files]
 
     # Replace all placeholders
     replacements = Dict(
-        "{{CSS_CONTENT}}" => css_content,
+        "{{CSS_CONTENT}}" => css_content * "\n" * custom_css,
         "{{JS_CONTENT}}" => js_content,
         "{{NROWS}}" => string(nrows),
         "{{NCOLS}}" => string(ncols),

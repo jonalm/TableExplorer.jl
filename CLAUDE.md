@@ -155,6 +155,74 @@ The `auto_categorical_threshold` parameter enables smart defaults while allowing
 - For each src/*.jl file, there should be a corresponding unit test file
   `test/test_*.jl` which covers the functionality. All tests should be referenced by `test/runtests.jl`
 
+## CSS Development Workflow
+
+When working on moderately difficult CSS problems (especially those involving visual layout, positioning, transforms, or browser-specific rendering), **ALWAYS** use this systematic visual testing approach:
+
+### The Multi-Variant Testing Method
+
+1. **Never guess CSS values** - CSS rendering is complex and counterintuitive, especially with transforms, flexbox, and positioning
+
+2. **Create standalone HTML test files** with multiple variations:
+   - Generate a single HTML file in `/tmp/` with 6-12 different CSS approaches
+   - Each variation should be visually displayed side-by-side or stacked vertically
+   - Label each test clearly (Test A, Test B, etc.) with descriptions
+   - Include visual markers when needed (e.g., colored lines for alignment checks)
+
+3. **Use actual libraries** in tests when relevant:
+   - If the CSS will be used with Tabulator.js, create tests using actual Tabulator tables
+   - If testing embedded in the application, use the real HTML structure, not simplified versions
+   - This reveals container clipping, overflow behavior, and library-specific constraints
+
+4. **Open in browser for user feedback**:
+   - Use `open /tmp/test_file.html` to display in the user's browser
+   - Let the user visually inspect and report which variation works correctly
+   - Iterate based on feedback, creating refined test files with adjusted parameters
+
+5. **Fine-tune with precision**:
+   - Once close to a solution, create tests with small incremental changes
+   - For example, test `margin-left` values: 20px, 18px, 16px, 14px, 12px, 10px, 8px, 5px, 0px
+   - Let the user identify the exact value that works
+
+6. **Document the solution**:
+   - Once the correct CSS is identified through testing, apply it to the Julia code
+   - The systematic approach prevents wasted effort and repeated failures
+
+### Example Workflow
+
+```bash
+# Step 1: Create initial test with 8 variations
+open /tmp/css_rotation_test.html
+# User feedback: "Options 5 and 6 are closest but not quite right"
+
+# Step 2: Refine based on feedback
+open /tmp/css_rotation_refined.html
+# User feedback: "Test C is almost perfect but text is cut off"
+
+# Step 3: Fine-tune the specific issue
+open /tmp/css_overflow_test.html
+# User feedback: "Test M works!"
+
+# Step 4: Apply Test M's CSS to the Julia code
+```
+
+### Why This Approach Works
+
+- **Visual feedback is immediate** - No need to recompile Julia code for each CSS test
+- **Comparative evaluation** - Seeing multiple options side-by-side makes the best choice obvious
+- **Captures edge cases** - Real browser rendering reveals issues that are hard to predict
+- **Faster iteration** - Can test 10+ variations in the time it takes to test 2-3 via code changes
+- **Eliminates guesswork** - CSS behavior is notoriously difficult to reason about; testing removes uncertainty
+
+### When to Use This Approach
+
+Use the multi-variant testing method for:
+- Transform-based rotations and positioning
+- Complex flexbox or grid layouts
+- Cross-browser compatibility issues
+- Precise alignment and spacing problems
+- Any CSS problem that has failed 2+ times with direct code changes
+
 ## Documentation
 
 Main user documentation, which includes examples, should be in the doc string

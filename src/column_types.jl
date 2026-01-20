@@ -139,16 +139,21 @@ Base.@kwdef struct ColumnBoolean <: ColumnType
 end
 
 """
-    ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, search_type=:input, palette=VIRIDIS_PALETTE)
+    ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, palette=VIRIDIS_PALETTE)
 
 Column type for numeric data with heatmap visualization.
 Values are displayed as colored cells (no text) using the viridis colorscheme.
+Cells are rendered as squares with rotated column headers. No filtering is available.
+
+Special value colors:
+- Valid numbers: Viridis gradient based on value
+- NaN/Inf/-Inf: Gray (#d3d3d3)
+- missing/nothing: White (#ffffff)
 
 # Fields
 - `min_value::Union{Float64, Nothing}`: Minimum value for color scale (auto-computed if nothing)
 - `max_value::Union{Float64, Nothing}`: Maximum value for color scale (auto-computed if nothing)
-- `alignment::Symbol`: Text alignment (`:left`, `:right`, `:center`)
-- `search_type::Symbol`: Type of header filter (`:input`, `:dropdown`)
+- `alignment::Symbol`: Text alignment (`:left`, `:right`, `:center`) - usually not visible
 - `palette::Vector{String}`: Color palette (default: viridis with 256 colors)
 
 # Examples
@@ -156,18 +161,17 @@ Values are displayed as colored cells (no text) using the viridis colorscheme.
 # Auto-detect min/max from data
 explore_table(df, "temperature" => ColumnHeatmap())
 
-# Explicit range
+# Explicit range (0-100)
 explore_table(df, "score" => ColumnHeatmap(min_value=0.0, max_value=100.0))
 
-# With dropdown filter
-explore_table(df, "value" => ColumnHeatmap(search_type=:dropdown))
+# Custom palette
+explore_table(df, "value" => ColumnHeatmap(palette=custom_colors))
 ```
 """
 Base.@kwdef struct ColumnHeatmap <: ColumnType
     min_value::Union{Float64, Nothing} = nothing
     max_value::Union{Float64, Nothing} = nothing
     alignment::Symbol = :center
-    search_type::Symbol = :input
     palette::Vector{String} = VIRIDIS_PALETTE
 end
 
@@ -346,9 +350,8 @@ function create_header_filter_config(col_type::ColumnBoolean, _table, _colname):
 end
 
 function create_header_filter_config(col_type::ColumnHeatmap, table, colname)::HeaderFilterConfig
-    # Reuse ColumnNumeric logic since underlying data is numeric
-    numeric_col = ColumnNumeric(search_type=col_type.search_type)
-    return create_header_filter_config(numeric_col, table, colname)
+    # No filter for heatmap columns
+    return HeaderFilterConfig("", "", "", nothing, false)
 end
 
 
@@ -552,20 +555,37 @@ function create_column_config(table, colname, col_type::ColumnType)
         "headerSort" => true
     )
 
-    # Add header filter configuration
-    filter_config = create_header_filter_config(col_type, table, colname)
-    config["headerFilter"] = filter_config.filter_type
-    config["headerFilterFunc"] = filter_config.filter_func
-    config["headerFilterPlaceholder"] = filter_config.placeholder
+    # Special handling for ColumnHeatmap
+    if col_type isa ColumnHeatmap
+        # Set fixed width to match row height (creating square cells)
+        config["width"] = 40
+        config["minWidth"] = 40
+        config["maxWidth"] = 40
+        config["resizable"] = false
 
-    # Add dropdown values if present
-    if !isnothing(filter_config.values)
-        params = Dict{String, Any}("values" => filter_config.values)
-        # Add multiselect if enabled
-        if filter_config.multiselect
-            params["multiselect"] = true
+        # Add title formatter to rotate header text 90 degrees (first letter at bottom)
+        config["titleFormatter"] = """function(cell) {
+          var value = cell.getValue();
+          return '<span style="display: block; transform: rotate(-90deg); transform-origin: left center; white-space: nowrap; margin-top: 90px; margin-left: 5px;">' + value + '</span>';
+        }"""
+
+        # Skip filter configuration for heatmap columns
+    else
+        # Add header filter configuration for non-heatmap columns
+        filter_config = create_header_filter_config(col_type, table, colname)
+        config["headerFilter"] = filter_config.filter_type
+        config["headerFilterFunc"] = filter_config.filter_func
+        config["headerFilterPlaceholder"] = filter_config.placeholder
+
+        # Add dropdown values if present
+        if !isnothing(filter_config.values)
+            params = Dict{String, Any}("values" => filter_config.values)
+            # Add multiselect if enabled
+            if filter_config.multiselect
+                params["multiselect"] = true
+            end
+            config["headerFilterParams"] = params
         end
-        config["headerFilterParams"] = params
     end
 
     # Add formatter if needed
