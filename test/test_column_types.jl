@@ -82,38 +82,59 @@ using Tables
         # Test regex
         col = ColumnText(search_type=:regex)
         result = TableExplorer.create_header_filter_config(col)
-        @test result == ("input", "regex", "Regex search...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "regex"
+        @test result.placeholder == "Regex search..."
 
         # Test exact
         col = ColumnText(search_type=:exact)
         result = TableExplorer.create_header_filter_config(col)
-        @test result == ("input", "=", "Exact match...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "="
+        @test result.placeholder == "Exact match..."
 
         # Test contains
         col = ColumnText(search_type=:contains)
         result = TableExplorer.create_header_filter_config(col)
-        @test result == ("input", "like", "Contains...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "like"
+        @test result.placeholder == "Contains..."
     end
 
     @testset "create_header_filter_config - ColumnNumeric" begin
         col = ColumnNumeric()
         result = TableExplorer.create_header_filter_config(col)
-        @test result == ("input", "regex", "Regex search...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "regex"
+        @test result.placeholder == "Regex search..."
 
-        # Range type (currently falls back to regex)
+        # Range type
         col_range = ColumnNumeric(search_type=:range)
         result = TableExplorer.create_header_filter_config(col_range)
-        @test result[1] == "input"
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == ">="
+        @test result.placeholder == "Min value..."
     end
 
     @testset "create_header_filter_config - ColumnCategorical" begin
         col = ColumnCategorical()
         result = TableExplorer.create_header_filter_config(col)
-        @test result == ("input", "regex", "Regex search...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "regex"
+        @test result.placeholder == "Regex search..."
 
         col_exact = ColumnCategorical(search_type=:exact)
         result = TableExplorer.create_header_filter_config(col_exact)
-        @test result == ("input", "=", "Exact match...")
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "="
+        @test result.placeholder == "Exact match..."
     end
 
     @testset "create_formatter - ColumnText" begin
@@ -191,6 +212,18 @@ using Tables
         result_custom = TableExplorer.create_formatter(col_custom, df, :flag)
         @test occursin("Yes", result_custom)
         @test occursin("No", result_custom)
+
+        # Test with special characters in labels (injection vulnerability test)
+        col_special = ColumnBoolean(true_label="It's true", false_label="Don't fail")
+        result_special = TableExplorer.create_formatter(col_special, df, :flag)
+        @test occursin("It\\'s true", result_special)
+        @test occursin("Don\\'t fail", result_special)
+
+        # Test with newlines and backslashes
+        col_escape = ColumnBoolean(true_label="Yes\nOK", false_label="No\\Way")
+        result_escape = TableExplorer.create_formatter(col_escape, df, :flag)
+        @test occursin("Yes\\nOK", result_escape)
+        @test occursin("No\\\\Way", result_escape)
     end
 
     @testset "get_alignment" begin

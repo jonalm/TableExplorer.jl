@@ -108,6 +108,32 @@ using Tables
         @test result["b"] == 2
     end
 
+    @testset "js_string_literal" begin
+        # Test basic string
+        @test TableExplorer.js_string_literal("hello") == "hello"
+
+        # Test single quotes
+        @test TableExplorer.js_string_literal("It's true") == "It\\'s true"
+
+        # Test backslashes
+        @test TableExplorer.js_string_literal("path\\to\\file") == "path\\\\to\\\\file"
+
+        # Test newlines
+        @test TableExplorer.js_string_literal("Line 1\nLine 2") == "Line 1\\nLine 2"
+
+        # Test carriage returns
+        @test TableExplorer.js_string_literal("Line 1\rLine 2") == "Line 1\\rLine 2"
+
+        # Test combined escaping
+        @test TableExplorer.js_string_literal("It's\na test\\file") == "It\\'s\\na test\\\\file"
+
+        # Test empty string
+        @test TableExplorer.js_string_literal("") == ""
+
+        # Test multiple quotes
+        @test TableExplorer.js_string_literal("'quoted' text") == "\\'quoted\\' text"
+    end
+
     @testset "create_categorical_formatter" begin
         color_map = Dict(
             "Pass" => "#28a745",
@@ -127,6 +153,17 @@ using Tables
         empty_map = Dict{String, String}()
         result_empty = TableExplorer.create_categorical_formatter(empty_map)
         @test occursin("colorMap = {\n\n  }", result_empty)
+
+        # Test with special characters in keys
+        color_map_special = Dict(
+            "It's OK" => "#28a745",
+            "Don't fail" => "#dc3545",
+            "Line\nbreak" => "#ffc107"
+        )
+        result_special = TableExplorer.create_categorical_formatter(color_map_special)
+        @test occursin("It\\'s OK", result_special)
+        @test occursin("Don\\'t fail", result_special)
+        @test occursin("Line\\nbreak", result_special)
     end
 
     @testset "open_in_browser" begin

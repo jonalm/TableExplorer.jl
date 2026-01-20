@@ -1,16 +1,24 @@
 
 """
+Helper function to check if a key-value pair represents a JavaScript function
+"""
+function is_js_function(key::String, value)
+    value isa String &&
+    (key == "formatter" || key == "titleFormatter" || endswith(key, "Formatter")) &&
+    startswith(strip(value), "function")
+end
+
+"""
 Helper function to serialize column config to JSON with special handling for functions
 """
 function config_to_json(config)
-    parts = [
-        if (k == "formatter" || k == "titleFormatter") && v isa String && startswith(v, "function")
+    parts = map(collect(config)) do (k, v)
+        if is_js_function(k, v)
             "\"$(k)\": $(v)"  # Don't quote function definitions
         else
             "\"$(k)\": $(JSON.json(v))"
         end
-        for (k, v) in config
-    ]
+    end
     return "{" * join(parts, ", ") * "}"
 end
 

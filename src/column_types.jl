@@ -126,57 +126,72 @@ Base.@kwdef struct ColumnBoolean <: ColumnType
 end
 
 
+"""
+    HeaderFilterConfig
+
+Configuration for column header filters in Tabulator.
+
+# Fields
+- `filter_type::String`: Type of filter widget (e.g., "input", "select")
+- `filter_func::String`: Tabulator filter function name (e.g., "regex", "=", "like", ">=")
+- `placeholder::String`: Placeholder text for filter input
+"""
+struct HeaderFilterConfig
+    filter_type::String
+    filter_func::String
+    placeholder::String
+end
 
 
 """
-    create_header_filter_config(col_type::ColumnType)
+    create_header_filter_config(col_type::ColumnType)::HeaderFilterConfig
 
 Create header filter configuration for a column type.
-Returns a tuple of (filter_type, filter_func, placeholder).
+Returns a HeaderFilterConfig with filter_type, filter_func, and placeholder.
 """
-function create_header_filter_config(col_type::ColumnText)
+function create_header_filter_config(col_type::ColumnText)::HeaderFilterConfig
     if col_type.search_type == :regex
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     elseif col_type.search_type == :exact
-        return ("input", "=", "Exact match...")
+        return HeaderFilterConfig("input", "=", "Exact match...")
     elseif col_type.search_type == :contains
-        return ("input", "like", "Contains...")
+        return HeaderFilterConfig("input", "like", "Contains...")
     else
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
-function create_header_filter_config(col_type::ColumnNumeric)
+function create_header_filter_config(col_type::ColumnNumeric)::HeaderFilterConfig
     if col_type.search_type == :range
-        return ("input", ">=", "Min value...")  # TODO: Implement proper range filter
+        return HeaderFilterConfig("input", ">=", "Min value...")  # TODO: Implement proper range filter
     else
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
-function create_header_filter_config(col_type::ColumnCategorical)
+function create_header_filter_config(col_type::ColumnCategorical)::HeaderFilterConfig
     if col_type.search_type == :dropdown
-        return ("input", "=", "Select...")  # TODO: Implement dropdown
+        return HeaderFilterConfig("input", "=", "Select...")  # TODO: Implement dropdown
     elseif col_type.search_type == :exact
-        return ("input", "=", "Exact match...")
+        return HeaderFilterConfig("input", "=", "Exact match...")
     else
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
-function create_header_filter_config(col_type::ColumnDateTime)
+function create_header_filter_config(col_type::ColumnDateTime)::HeaderFilterConfig
     if col_type.search_type == :range
-        return ("input", ">=", "Date...")  # TODO: Implement date range
+        return HeaderFilterConfig("input", ">=", "Date...")  # TODO: Implement date range
     else
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
-function create_header_filter_config(col_type::ColumnBoolean)
+function create_header_filter_config(col_type::ColumnBoolean)::HeaderFilterConfig
     if col_type.search_type == :dropdown
-        return ("input", "=", "True/False...")  # TODO: Implement dropdown
+        return HeaderFilterConfig("input", "=", "True/False...")  # TODO: Implement dropdown
     else
-        return ("input", "regex", "Regex search...")
+        return HeaderFilterConfig("input", "regex", "Regex search...")
     end
 end
 
@@ -237,8 +252,8 @@ function create_formatter(col_type::ColumnDateTime, table, colname)
 end
 
 function create_formatter(col_type::ColumnBoolean, table, colname)
-    true_label = col_type.true_label
-    false_label = col_type.false_label
+    true_label = js_string_literal(col_type.true_label)
+    false_label = js_string_literal(col_type.false_label)
     return """function(cell) {
       var val = cell.getValue();
       if (val == null || val === '') return '';
@@ -272,13 +287,11 @@ function create_column_config(table, colname, col_type::ColumnType)
         "headerSort" => true
     )
 
-    # Add header filter configuration (if filtering is enabled for this column type)
-    filter_type, filter_func, placeholder = create_header_filter_config(col_type)
-    if !isnothing(filter_type)
-        config["headerFilter"] = filter_type
-        config["headerFilterFunc"] = filter_func
-        config["headerFilterPlaceholder"] = placeholder
-    end
+    # Add header filter configuration
+    filter_config = create_header_filter_config(col_type)
+    config["headerFilter"] = filter_config.filter_type
+    config["headerFilterFunc"] = filter_config.filter_func
+    config["headerFilterPlaceholder"] = filter_config.placeholder
 
     # Add formatter if needed
     formatter = create_formatter(col_type, table, colname)
@@ -329,15 +342,19 @@ function auto_detect_column_type(table, colname; auto_categorical_threshold=10)
 
     # Check for categorical string columns
     if non_missing_type <: Union{AbstractString, String} && !isnothing(auto_categorical_threshold)
-        # Filter out missing and collect unique values
-        is_valid_value(val) = !ismissing(val) && val !== nothing && val != ""
-        unique_vals = Set{String}(string(val) for val in col_data if is_valid_value(val))
-
-        if length(unique_vals) <= auto_categorical_threshold && length(unique_vals) > 0
-            return ColumnCategorical()  # Will auto-generate colors
-        else
-            return ColumnText()
+        # Use early-exit iteration to avoid processing entire column for large datasets
+        seen = Set{String}()
+        for val in col_data
+            if !ismissing(val) && val !== nothing && val != ""
+                push!(seen, string(val))
+                # Short-circuit if we exceed threshold
+                if length(seen) > auto_categorical_threshold
+                    return ColumnText()
+                end
+            end
         end
+        # Return categorical if we found valid values within threshold
+        return length(seen) > 0 ? ColumnCategorical() : ColumnText()
     end
 
     # Default to text column

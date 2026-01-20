@@ -31,6 +31,59 @@ using JSON
         )
         result = TableExplorer.config_to_json(config_title_func)
         @test occursin("\"titleFormatter\": function(cell)", result)
+
+        # Test with custom formatter ending with "Formatter"
+        config_custom_formatter = Dict(
+            "title" => "Custom",
+            "customFormatter" => "function(cell) { return 'test'; }"
+        )
+        result = TableExplorer.config_to_json(config_custom_formatter)
+        @test occursin("\"customFormatter\": function(cell)", result)
+        @test !occursin("\"function(cell)", result)
+
+        # Test with leading whitespace in function
+        config_whitespace = Dict(
+            "formatter" => "  function(cell) { return cell.getValue(); }"
+        )
+        result = TableExplorer.config_to_json(config_whitespace)
+        @test occursin("\"formatter\":   function(cell)", result)
+
+        # Test that non-function strings are properly quoted
+        config_non_func = Dict(
+            "formatter" => "not a function",
+            "titleFormatter" => "also not a function"
+        )
+        result = TableExplorer.config_to_json(config_non_func)
+        @test occursin("\"not a function\"", result)
+        @test occursin("\"also not a function\"", result)
+
+        # Test with edge case: formatter key but not a string value
+        config_non_string = Dict(
+            "formatter" => 123,
+            "title" => "Test"
+        )
+        result = TableExplorer.config_to_json(config_non_string)
+        @test occursin("\"formatter\": 123", result)
+        @test occursin("\"title\": \"Test\"", result)
+    end
+
+    @testset "is_js_function" begin
+        # Test valid JavaScript functions
+        @test TableExplorer.is_js_function("formatter", "function(cell) { return 1; }")
+        @test TableExplorer.is_js_function("titleFormatter", "function() { return 'test'; }")
+        @test TableExplorer.is_js_function("customFormatter", "function(x) { return x; }")
+        @test TableExplorer.is_js_function("myFormatter", "function() {}")
+
+        # Test with leading whitespace
+        @test TableExplorer.is_js_function("formatter", "  function() {}")
+        @test TableExplorer.is_js_function("formatter", "\tfunction() {}")
+
+        # Test invalid cases
+        @test !TableExplorer.is_js_function("formatter", "not a function")
+        @test !TableExplorer.is_js_function("formatter", "func() {}")  # doesn't start with "function"
+        @test !TableExplorer.is_js_function("title", "function() {}")  # wrong key
+        @test !TableExplorer.is_js_function("formatter", 123)  # not a string
+        @test !TableExplorer.is_js_function("myFormat", "function() {}")  # doesn't end with "Formatter"
     end
 
     @testset "table_html - basic functionality" begin

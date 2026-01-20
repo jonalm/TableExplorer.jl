@@ -44,6 +44,40 @@ function generate_categorical_colors(unique_values, palette=DEFAULT_CATEGORICAL_
     return Dict{String, String}(pairs)
 end
 
+"""
+    js_string_literal(s::String)
+
+Escape a Julia string for safe embedding in JavaScript string literals.
+
+Handles common escape sequences:
+- Single quotes (') → \\'
+- Backslashes (\\) → \\\\
+- Newlines (\\n) → \\\\n
+- Carriage returns (\\r) → \\\\r
+
+# Arguments
+- `s`: String to escape
+
+# Returns
+Escaped string ready for embedding in JavaScript code (without surrounding quotes)
+
+# Examples
+```julia
+js_string_literal("It's true")  # Returns: "It\\'s true"
+js_string_literal("Line 1\\nLine 2")  # Returns: "Line 1\\\\nLine 2"
+```
+"""
+function js_string_literal(s::String)
+    # Order matters: escape backslashes first to avoid double-escaping
+    escaped = replace(s,
+        "\\" => "\\\\",
+        "'" => "\\'",
+        "\n" => "\\n",
+        "\r" => "\\r"
+    )
+    return escaped
+end
+
 function open_in_browser(path)
     @static if Sys.isapple()
         run(`open $path`)
@@ -70,17 +104,12 @@ Convert a single table row to a dictionary with string keys, handling special nu
 Dictionary mapping column names (as strings) to values, with NaN/Inf converted to nothing
 """
 function row_to_dict(row, colnames)
-    row_dict = Dict{String, Any}()
-    for colname in colnames
-        val = Tables.getcolumn(row, colname)
-        # Handle special numeric values
-        if val isa AbstractFloat && (isnan(val) || isinf(val))
-            row_dict[String(colname)] = nothing
-        else
-            row_dict[String(colname)] = val
+    Dict{String, Any}(
+        String(colname) => let val = Tables.getcolumn(row, colname)
+            (val isa AbstractFloat && (isnan(val) || isinf(val))) ? nothing : val
         end
-    end
-    return row_dict
+        for colname in colnames
+    )
 end
 
 
@@ -101,8 +130,8 @@ The formatter applies cell-level styling with:
 JavaScript function string compatible with Tabulator.js formatter API
 """
 function create_categorical_formatter(color_map::Dict{String, String})
-    # Convert color map to JavaScript object literal
-    color_entries = ["    '$(k)': '$(v)'" for (k, v) in color_map]
+    # Convert color map to JavaScript object literal with proper escaping
+    color_entries = ["    '$(js_string_literal(k))': '$(v)'" for (k, v) in color_map]
     color_obj = "{\n" * join(color_entries, ",\n") * "\n  }"
 
     # Generate JavaScript formatter function with cell-level styling
