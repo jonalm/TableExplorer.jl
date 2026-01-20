@@ -11,6 +11,7 @@ export explore_table,
     ColumnBoolean,
     ColumnCategorical,
     ColumnDateTime,
+    ColumnHeatmap,
     ColumnNumeric,
     ColumnText
 

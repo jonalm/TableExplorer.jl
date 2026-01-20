@@ -5,6 +5,10 @@ const DEFAULT_CATEGORICAL_PALETTE = let
     map(_prepend("#") ∘ hex, ColorSchemes.batlowWS)
 end
 
+const VIRIDIS_PALETTE = let
+    map(_prepend("#") ∘ hex, ColorSchemes.viridis)
+end
+
 """
     assign_color_to_value(indexed_value, palette)
 

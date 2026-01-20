@@ -496,6 +496,121 @@ using Tables
         @test result isa ColumnText
     end
 
+    @testset "ColumnHeatmap construction" begin
+        # Test defaults
+        col = ColumnHeatmap()
+        @test col.min_value === nothing
+        @test col.max_value === nothing
+        @test col.alignment == :center
+        @test col.search_type == :input
+        @test col.palette == TableExplorer.VIRIDIS_PALETTE
+
+        # Test with explicit min/max
+        col_custom = ColumnHeatmap(min_value=0.0, max_value=100.0)
+        @test col_custom.min_value == 0.0
+        @test col_custom.max_value == 100.0
+
+        # Test with custom alignment
+        col_align = ColumnHeatmap(alignment=:right)
+        @test col_align.alignment == :right
+
+        # Test with custom palette
+        custom_palette = ["#000000", "#ffffff"]
+        col_palette = ColumnHeatmap(palette=custom_palette)
+        @test col_palette.palette == custom_palette
+
+        # Test with dropdown search type
+        col_dropdown = ColumnHeatmap(search_type=:dropdown)
+        @test col_dropdown.search_type == :dropdown
+    end
+
+    @testset "create_header_filter_config - ColumnHeatmap" begin
+        df = DataFrame(value = [1.5, 2.5, 3.5])
+
+        # Test input filter (default)
+        col = ColumnHeatmap()
+        result = TableExplorer.create_header_filter_config(col, df, :value)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "input"
+        @test result.filter_func == "regex"
+        @test result.placeholder == "Regex search..."
+
+        # Test dropdown filter
+        col_dropdown = ColumnHeatmap(search_type=:dropdown)
+        result = TableExplorer.create_header_filter_config(col_dropdown, df, :value)
+        @test result isa TableExplorer.HeaderFilterConfig
+        @test result.filter_type == "list"
+        @test result.filter_func == "numericTypeFilter"
+        @test result.placeholder == "Select..."
+
+        # Test with NaN/Inf values
+        df_special = DataFrame(value = [1.5, NaN, Inf, -Inf, missing])
+        result_special = TableExplorer.create_header_filter_config(col_dropdown, df_special, :value)
+        @test length(result_special.values) == 5  # numerical, NaN, Infinity, -Infinity, (null)
+    end
+
+    @testset "create_formatter - ColumnHeatmap" begin
+        # Test with auto min/max calculation
+        df = DataFrame(value = [1.0, 2.0, 3.0, 4.0, 5.0])
+        col = ColumnHeatmap()
+        result = TableExplorer.create_formatter(col, df, :value)
+        @test result isa String
+        @test occursin("var minVal = 1.0", result)
+        @test occursin("var maxVal = 5.0", result)
+        @test occursin("palette", result)
+        @test occursin("return '';", result)  # Should return empty string
+
+        # Test with explicit min/max
+        col_explicit = ColumnHeatmap(min_value=0.0, max_value=10.0)
+        result = TableExplorer.create_formatter(col_explicit, df, :value)
+        @test occursin("var minVal = 0.0", result)
+        @test occursin("var maxVal = 10.0", result)
+
+        # Test with missing/nothing values
+        df_missing = DataFrame(value = [1.0, missing, nothing, 3.0])
+        result_missing = TableExplorer.create_formatter(col, df_missing, :value)
+        @test occursin("var minVal = 1.0", result_missing)
+        @test occursin("var maxVal = 3.0", result_missing)
+
+        # Test with NaN/Inf values - should be excluded from min/max
+        df_special = DataFrame(value = [1.0, NaN, Inf, -Inf, 5.0])
+        result_special = TableExplorer.create_formatter(col, df_special, :value)
+        @test occursin("var minVal = 1.0", result_special)
+        @test occursin("var maxVal = 5.0", result_special)
+
+        # Test min==max edge case
+        df_same = DataFrame(value = [2.0, 2.0, 2.0])
+        result_same = TableExplorer.create_formatter(col, df_same, :value)
+        @test occursin("var minVal = 2.0", result_same)
+        @test occursin("var maxVal = 3.0", result_same)  # Should be min + 1
+
+        # Test empty column (all missing/NaN)
+        df_empty = DataFrame(value = [missing, NaN, nothing])
+        result_empty = TableExplorer.create_formatter(col, df_empty, :value)
+        @test occursin("var minVal = 0.0", result_empty)  # Default min
+        @test occursin("var maxVal = 1.0", result_empty)  # Default max
+
+        # Test single value column
+        df_single = DataFrame(value = [3.5])
+        result_single = TableExplorer.create_formatter(col, df_single, :value)
+        @test occursin("var minVal = 3.5", result_single)
+        @test occursin("var maxVal = 4.5", result_single)  # min + 1
+
+        # Test that palette is embedded
+        custom_palette = ["#ff0000", "#00ff00", "#0000ff"]
+        col_palette = ColumnHeatmap(palette=custom_palette)
+        result_palette = TableExplorer.create_formatter(col_palette, df, :value)
+        @test occursin("#ff0000", result_palette)
+        @test occursin("#00ff00", result_palette)
+        @test occursin("#0000ff", result_palette)
+    end
+
+    @testset "get_alignment - ColumnHeatmap" begin
+        @test TableExplorer.get_alignment(ColumnHeatmap()) == "center"
+        @test TableExplorer.get_alignment(ColumnHeatmap(alignment=:left)) == "left"
+        @test TableExplorer.get_alignment(ColumnHeatmap(alignment=:right)) == "right"
+    end
+
     @testset "Column type hierarchy" begin
         # Verify all column types are subtypes of ColumnType
         @test ColumnText <: TableExplorer.ColumnType
@@ -503,6 +618,7 @@ using Tables
         @test ColumnCategorical <: TableExplorer.ColumnType
         @test ColumnDateTime <: TableExplorer.ColumnType
         @test ColumnBoolean <: TableExplorer.ColumnType
+        @test ColumnHeatmap <: TableExplorer.ColumnType
     end
 
     @testset "Edge cases - mixed types" begin

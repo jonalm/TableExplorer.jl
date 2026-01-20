@@ -138,6 +138,39 @@ Base.@kwdef struct ColumnBoolean <: ColumnType
     multiselect::Bool = false
 end
 
+"""
+    ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, search_type=:input, palette=VIRIDIS_PALETTE)
+
+Column type for numeric data with heatmap visualization.
+Values are displayed as colored cells (no text) using the viridis colorscheme.
+
+# Fields
+- `min_value::Union{Float64, Nothing}`: Minimum value for color scale (auto-computed if nothing)
+- `max_value::Union{Float64, Nothing}`: Maximum value for color scale (auto-computed if nothing)
+- `alignment::Symbol`: Text alignment (`:left`, `:right`, `:center`)
+- `search_type::Symbol`: Type of header filter (`:input`, `:dropdown`)
+- `palette::Vector{String}`: Color palette (default: viridis with 256 colors)
+
+# Examples
+```julia
+# Auto-detect min/max from data
+explore_table(df, "temperature" => ColumnHeatmap())
+
+# Explicit range
+explore_table(df, "score" => ColumnHeatmap(min_value=0.0, max_value=100.0))
+
+# With dropdown filter
+explore_table(df, "value" => ColumnHeatmap(search_type=:dropdown))
+```
+"""
+Base.@kwdef struct ColumnHeatmap <: ColumnType
+    min_value::Union{Float64, Nothing} = nothing
+    max_value::Union{Float64, Nothing} = nothing
+    alignment::Symbol = :center
+    search_type::Symbol = :input
+    palette::Vector{String} = VIRIDIS_PALETTE
+end
+
 
 """
     HeaderFilterConfig
@@ -312,6 +345,12 @@ function create_header_filter_config(col_type::ColumnBoolean, _table, _colname):
     end
 end
 
+function create_header_filter_config(col_type::ColumnHeatmap, table, colname)::HeaderFilterConfig
+    # Reuse ColumnNumeric logic since underlying data is numeric
+    numeric_col = ColumnNumeric(search_type=col_type.search_type)
+    return create_header_filter_config(numeric_col, table, colname)
+end
+
 
 """
     create_formatter(col_type::ColumnType, df::DataFrame, colname::String)
@@ -405,6 +444,87 @@ function create_formatter(col_type::ColumnBoolean, table, colname)
     }"""
 end
 
+function create_formatter(col_type::ColumnHeatmap, table, colname)
+    # Get column data to compute min/max if needed
+    cols = Tables.columns(table)
+    col_data = Tables.getcolumn(cols, colname)
+
+    # Filter to only valid numeric values for min/max calculation
+    valid_values = filter(col_data) do val
+        !ismissing(val) && val !== nothing && val isa Number && isfinite(val)
+    end
+
+    # Determine min and max values
+    min_val = if isnothing(col_type.min_value)
+        isempty(valid_values) ? 0.0 : minimum(valid_values)
+    else
+        col_type.min_value
+    end
+
+    max_val = if isnothing(col_type.max_value)
+        isempty(valid_values) ? 1.0 : maximum(valid_values)
+    else
+        col_type.max_value
+    end
+
+    # Handle edge case where min == max
+    if min_val == max_val
+        max_val = min_val + 1.0
+    end
+
+    # Create JavaScript array of viridis colors
+    palette_js = "[" * join(["'$c'" for c in col_type.palette], ", ") * "]"
+
+    # Generate JavaScript formatter function
+    return """function(cell) {
+      var val = cell.getValue();
+
+      // Handle null/missing/nothing - white background
+      if (val == null || val === '') {
+        var cellElement = cell.getElement();
+        cellElement.style.backgroundColor = '#ffffff';
+        cellElement.style.color = '#000000';
+        return '';
+      }
+
+      // Handle NaN/Infinity/-Infinity - gray background
+      if (typeof val === 'string') {
+        var cellElement = cell.getElement();
+        cellElement.style.backgroundColor = '#d3d3d3';
+        cellElement.style.color = '#000000';
+        return '';
+      }
+
+      // Viridis color palette
+      var palette = $palette_js;
+      var minVal = $min_val;
+      var maxVal = $max_val;
+
+      // Normalize value to [0, 1] range
+      var normalized = (val - minVal) / (maxVal - minVal);
+      normalized = Math.max(0, Math.min(1, normalized));  // Clamp to [0, 1]
+
+      // Map to palette index
+      var paletteIndex = Math.floor(normalized * (palette.length - 1));
+      var color = palette[paletteIndex];
+
+      // Calculate contrasting text color (white for dark, black for light backgrounds)
+      var r = parseInt(color.substr(1,2), 16);
+      var g = parseInt(color.substr(3,2), 16);
+      var b = parseInt(color.substr(5,2), 16);
+      var brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      var textColor = brightness > 155 ? '#000000' : '#ffffff';
+
+      // Apply styling to the entire cell
+      var cellElement = cell.getElement();
+      cellElement.style.backgroundColor = color;
+      cellElement.style.color = textColor;
+
+      // Return empty string - no text displayed, only color
+      return '';
+    }"""
+end
+
 
 """
     get_alignment(col_type::ColumnType)
@@ -416,6 +536,7 @@ get_alignment(col_type::ColumnNumeric) = string(col_type.alignment)
 get_alignment(col_type::ColumnCategorical) = nothing
 get_alignment(col_type::ColumnDateTime) = nothing
 get_alignment(col_type::ColumnBoolean) = "center"
+get_alignment(col_type::ColumnHeatmap) = string(col_type.alignment)
 
 """
     create_column_config(table, colname, col_type::ColumnType)
