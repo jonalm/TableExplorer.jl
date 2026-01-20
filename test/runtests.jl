@@ -10,7 +10,7 @@ using TableExplorer
     include("test_html_generation.jl")
 end
 
-
+##
 @testset "run all examples" begin
     example_scripts = readdir(joinpath(@__DIR__,"..","examples"), join=true)
     for script in example_scripts

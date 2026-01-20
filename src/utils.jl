@@ -1,13 +1,9 @@
 
 _prepend(x,y) = x*y
 _prepend(x) = Base.Fix1(_prepend, x)
-const DEFAULT_CATEGORICAL_PALETTE = let
-    map(_prepend("#") ∘ hex, ColorSchemes.batlowWS)
-end
+const DEFAULT_CATEGORICAL_PALETTE = map(_prepend("#") ∘ hex, ColorSchemes.Pastel2_8)
+const CONTINUOUS_PALETTE = map(_prepend("#") ∘ hex, ColorSchemes.lipari100)
 
-const VIRIDIS_PALETTE = let
-    map(_prepend("#") ∘ hex, ColorSchemes.viridis)
-end
 
 """
     assign_color_to_value(indexed_value, palette)

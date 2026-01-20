@@ -9,4 +9,4 @@ df = DataFrame(
     value = rand(100) .* 1000
 )
 
-explore_table(df; auto_categorical_threshold=100)
+explore_table(df; auto_categorical_threshold=3)

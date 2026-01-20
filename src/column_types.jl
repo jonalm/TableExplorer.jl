@@ -139,7 +139,7 @@ Base.@kwdef struct ColumnBoolean <: ColumnType
 end
 
 """
-    ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, palette=VIRIDIS_PALETTE)
+    ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, palette=CONTINUOUS_PALETTE)
 
 Column type for numeric data with heatmap visualization.
 Values are displayed as colored cells (no text) using the viridis colorscheme.
@@ -172,7 +172,7 @@ Base.@kwdef struct ColumnHeatmap <: ColumnType
     min_value::Union{Float64, Nothing} = nothing
     max_value::Union{Float64, Nothing} = nothing
     alignment::Symbol = :center
-    palette::Vector{String} = VIRIDIS_PALETTE
+    palette::Vector{String} = CONTINUOUS_PALETTE
 end
 
 
@@ -616,12 +616,13 @@ function create_column_config(table, colname, col_type::ColumnType)
 end
 
 """
-    auto_detect_column_type(table, colname; auto_categorical_threshold=10)
+    auto_detect_column_type(table, colname; auto_categorical_threshold=length(DEFAULT_CATEGORICAL_PALETTE))
 
 Automatically detect the best column type for a column based on its data type and values.
 Handles missing, NaN, and empty values robustly.
 """
-function auto_detect_column_type(table, colname; auto_categorical_threshold=10)
+function auto_detect_column_type(table, colname; auto_categorical_threshold=nothing)
+    auto_categorical_threshold = isnothing(auto_categorical_threshold) ? length(DEFAULT_CATEGORICAL_PALETTE) : auto_categorical_threshold
     # Get the column data
     cols = Tables.columns(table)
     col_data = Tables.getcolumn(cols, colname)

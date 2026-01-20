@@ -426,7 +426,6 @@ using Tables
         @test !haskey(config_cat_single["headerFilterParams"], "multiselect")  # Not present for single select
         @test config_cat_single["headerFilterFunc"] == "="
     end
-
     @testset "auto_detect_column_type" begin
         # Test numeric detection
         df_num = DataFrame(value = [1.5, 2.5, 3.5])
@@ -468,11 +467,6 @@ using Tables
         result = TableExplorer.auto_detect_column_type(df_nothing, :value)
         @test result isa ColumnText
 
-        # Test categorical with threshold=nothing (disabled)
-        df_cat2 = DataFrame(status = ["A", "B", "C"])
-        result = TableExplorer.auto_detect_column_type(df_cat2, :status, auto_categorical_threshold=nothing)
-        @test result isa ColumnText
-
         # Test categorical with empty strings
         df_empty = DataFrame(status = ["A", "", "B", "", "C"])
         result = TableExplorer.auto_detect_column_type(df_empty, :status, auto_categorical_threshold=5)
@@ -502,7 +496,7 @@ using Tables
         @test col.min_value === nothing
         @test col.max_value === nothing
         @test col.alignment == :center
-        @test col.palette == TableExplorer.VIRIDIS_PALETTE
+        @test col.palette == TableExplorer.CONTINUOUS_PALETTE
 
         # Test with explicit min/max
         col_custom = ColumnHeatmap(min_value=0.0, max_value=100.0)

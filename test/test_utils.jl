@@ -6,7 +6,6 @@ using Tables
 @testset "Utils Tests" begin
 
     @testset "DEFAULT_CATEGORICAL_PALETTE" begin
-        @test length(TableExplorer.DEFAULT_CATEGORICAL_PALETTE) == 100
         @test all(color -> startswith(color, "#"), TableExplorer.DEFAULT_CATEGORICAL_PALETTE)
         @test all(color -> length(color) == 7, TableExplorer.DEFAULT_CATEGORICAL_PALETTE)
     end

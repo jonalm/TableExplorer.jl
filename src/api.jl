@@ -50,15 +50,16 @@ explore_table(df,
 # Mix manual and auto-detection
 explore_table(df,
     :status => ColumnCategorical(color_map=my_colors),
-    auto_categorical_threshold=15
+    auto_categorical_threshold=
 )
 ```
 """
 function explore_table(
     table,
     column_types::Pair{<:Union{String,Symbol}, <:ColumnType}...;
-    auto_categorical_threshold::Union{Int, Nothing}=10
+    auto_categorical_threshold::Union{Int, Nothing}=nothing
 )
+    auto_categorical_threshold = isnothing(auto_categorical_threshold) ? length(DEFAULT_CATEGORICAL_PALETTE) : auto_categorical_threshold
     html_path = joinpath(mktempdir(), "explore_table.html")
     write(html_path, table_html(table, column_types...; auto_categorical_threshold=auto_categorical_threshold))
     open_in_browser(html_path)
