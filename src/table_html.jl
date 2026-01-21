@@ -134,16 +134,24 @@ function table_html(
         60  # Default height if no heatmap columns
     else
         max_name_length = maximum(length, heatmap_col_names)
-        max_name_length * 8 + 40
+        min(200, max_name_length * 8 + 40)
     end
 
-    # Custom CSS for dynamic header height
+    # Custom CSS for dynamic header height and rotated headers
     custom_css = """
     .tabulator .tabulator-header {
         min-height: $(max_header_height)px !important;
     }
     .tabulator .tabulator-col {
         min-height: $(max_header_height)px !important;
+    }
+    .rotated-header {
+        display: block;
+        transform: rotate(-90deg);
+        transform-origin: left bottom;
+        white-space: nowrap;
+        margin-top: $(max_header_height)px;
+        margin-left: 15px;
     }
     """
 

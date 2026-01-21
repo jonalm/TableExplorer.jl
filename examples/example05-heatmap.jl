@@ -19,7 +19,7 @@ df = DataFrame(
     performance = [rand(num_rows-2) .* 10; NaN; Inf],
 
     # Profit margin percentage
-    profit_margin = randn(num_rows) .* 5 .+ 15,
+    very_long_column_name_here_does_the_colheight_adjust = randn(num_rows) .* 5 .+ 15,
 
     # Customer satisfaction (1-5 scale)
     satisfaction = rand(1:5, num_rows) .+ randn(num_rows) .* 0.3,
@@ -44,7 +44,7 @@ explore_table(df,
     :performance => ColumnHeatmap(),
 
     # Another auto-range heatmap
-    :profit_margin => ColumnHeatmap(),
+    :very_long_column_name_here_does_the_colheight_adjust => ColumnHeatmap(),
 
     # Heatmap with custom alignment (not visible since no text)
     :satisfaction => ColumnHeatmap(alignment=:center),

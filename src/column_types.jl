@@ -558,9 +558,10 @@ function create_column_config(table, colname, col_type::ColumnType)
     # Add title formatter with dynamic sort arrow for ALL column types
     if col_type isa ColumnHeatmap
         # Heatmap columns: rotated header with inline arrow
+        # Note: margin-top and margin-left are set dynamically via CSS in table_html.jl
         config["titleFormatter"] = """function(cell) {
           var value = cell.getValue();
-          return '<span class="rotated-header" style="display: block; transform: rotate(-90deg); transform-origin: left center; white-space: nowrap; margin-top: 90px; margin-left: 5px;"><span class="sort-arrow">○</span> ' + value + '</span>';
+          return '<span class="rotated-header"><span class="sort-arrow">○</span> ' + value + '</span>';
         }"""
     else
         # Regular columns: normal header with inline arrow

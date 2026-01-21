@@ -223,6 +223,15 @@ Use the multi-variant testing method for:
 - Precise alignment and spacing problems
 - Any CSS problem that has failed 2+ times with direct code changes
 
+### Critical: Dynamic Header Heights
+
+**IMPORTANT**: When creating CSS test files for heatmap column rotation or any header-related styling:
+
+- The package **dynamically calculates header height** in [src/table_html.jl](src/table_html.jl) based on the longest heatmap column name
+- This affects the positioning of rotated headers and filter row spacing
+- **Always replicate the exact header height** when creating test HTML files
+- Failure to include accurate header heights will produce misleading test results
+
 ## Documentation
 
 Main user documentation, which includes examples, should be in the doc string
