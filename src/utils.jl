@@ -47,7 +47,7 @@ function generate_categorical_colors(unique_values, palette=DEFAULT_CATEGORICAL_
     # Sort normal values and append special values at the end
     sorted_values = vcat(sort(normal_vals), special_vals)
 
-    pairs = map(Base.Fix2(assign_color_to_value, palette), enumerate(sorted_values))
+    pairs = map(Fix2(assign_color_to_value, palette), enumerate(sorted_values))
     return Dict{String, String}(pairs)
 end
 

@@ -5,6 +5,7 @@ using Tables
 using ColorSchemes
 using Colors: hex
 using Dates
+using Base: Fix, Fix1, Fix2
 
 export explore_table,
     # columns
