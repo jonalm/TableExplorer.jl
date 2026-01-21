@@ -575,9 +575,9 @@ function create_column_config(table, colname, col_type::ColumnType)
     # Special handling for ColumnHeatmap
     if col_type isa ColumnHeatmap
         # Set fixed width to match row height (creating square cells)
-        config["width"] = 40
-        config["minWidth"] = 40
-        config["maxWidth"] = 40
+        config["width"] = 25
+        config["minWidth"] = 25
+        config["maxWidth"] = 25
         config["resizable"] = false
 
         # Add CSS class to identify heatmap columns
