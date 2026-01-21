@@ -553,7 +553,8 @@ function create_column_config(table, colname, col_type::ColumnType)
         "title" => colname_str,
         "field" => colname_str,
         "headerSort" => true,
-        "headerTooltip" => colname_str
+        "headerTooltip" => colname_str,
+        "tooltip" => true  # Show raw cell value as tooltip
     )
 
     # Add title formatter with dynamic sort arrow for ALL column types
