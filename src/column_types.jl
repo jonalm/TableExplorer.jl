@@ -552,7 +552,8 @@ function create_column_config(table, colname, col_type::ColumnType)
     config = Dict{String, Any}(
         "title" => colname_str,
         "field" => colname_str,
-        "headerSort" => true
+        "headerSort" => true,
+        "headerTooltip" => colname_str
     )
 
     # Add title formatter with dynamic sort arrow for ALL column types

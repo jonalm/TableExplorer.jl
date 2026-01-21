@@ -54,6 +54,4 @@ explore_table(df,
 
     # Regular numeric showing actual values
     :quantity => ColumnNumeric(decimal_places=0);
-
-    auto_categorical_threshold=100
 )
