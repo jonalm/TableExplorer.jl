@@ -539,7 +539,7 @@ get_alignment(col_type::ColumnNumeric) = string(col_type.alignment)
 get_alignment(col_type::ColumnCategorical) = nothing
 get_alignment(col_type::ColumnDateTime) = nothing
 get_alignment(col_type::ColumnBoolean) = "center"
-get_alignment(col_type::ColumnHeatmap) = string(col_type.alignment)
+get_alignment(col_type::ColumnHeatmap) = nothing  # No alignment needed - cells are empty
 
 """
     create_column_config(table, colname, col_type::ColumnType)
@@ -612,7 +612,7 @@ function create_column_config(table, colname, col_type::ColumnType)
     # Add alignment if specified
     alignment = get_alignment(col_type)
     if !isnothing(alignment)
-        config["align"] = alignment
+        config["hozAlign"] = alignment
     end
 
     return config
