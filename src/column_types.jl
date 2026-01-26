@@ -542,16 +542,18 @@ get_alignment(col_type::ColumnBoolean) = "center"
 get_alignment(col_type::ColumnHeatmap) = nothing  # No alignment needed - cells are empty
 
 """
-    create_column_config(table, colname, col_type::ColumnType)
+    create_column_config(table, colname, col_type::ColumnType, safe_field::String)
 
 Create complete column configuration for a specific column type.
+Uses safe_field as the Tabulator field identifier (to avoid dots being interpreted as nested properties),
+while displaying the original colname in the title.
 """
-function create_column_config(table, colname, col_type::ColumnType)
+function create_column_config(table, colname, col_type::ColumnType, safe_field::String)
     colname_str = String(colname)
 
     config = Dict{String, Any}(
         "title" => colname_str,
-        "field" => colname_str,
+        "field" => safe_field,  # Use safe field name without dots
         "headerSort" => true,
         "headerTooltip" => colname_str,
         "tooltip" => true  # Show raw cell value as tooltip
@@ -616,6 +618,17 @@ function create_column_config(table, colname, col_type::ColumnType)
     end
 
     return config
+end
+
+"""
+    create_column_config(table, colname, col_type::ColumnType)
+
+Convenience method that uses the column name as the field (for backward compatibility with tests).
+For production use with special characters in column names, use the 4-argument version.
+"""
+function create_column_config(table, colname, col_type::ColumnType)
+    # Use column name as field (no dots handling)
+    return create_column_config(table, colname, col_type, String(colname))
 end
 
 """

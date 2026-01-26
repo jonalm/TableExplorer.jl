@@ -4,7 +4,7 @@ Helper function to check if a key-value pair represents a JavaScript function
 """
 function is_js_function(key::String, value)
     value isa String &&
-    (key == "formatter" || key == "titleFormatter" || endswith(key, "Formatter")) &&
+    (key == "formatter" || key == "titleFormatter" || key == "accessor" || endswith(key, "Formatter")) &&
     startswith(strip(value), "function")
 end
 
@@ -105,16 +105,37 @@ function table_html(
     # Convert column_types to a Dict with Symbol keys for consistent lookup
     col_type_dict = Dict{Symbol, ColumnType}(Symbol(k) => v for (k, v) in column_types)
 
+    # Create mapping from original column names to safe field names
+    # Tabulator interprets dots in field names as nested property accessors, so we need safe identifiers
+    colname_to_field = Dict{Symbol, String}()
+    for (idx, colname) in enumerate(colnames)
+        colname_sym = Symbol(colname)
+        # Use simple numeric identifiers as safe field names
+        colname_to_field[colname_sym] = "col_$idx"
+    end
+
     # Convert table to array of dictionaries for JSON serialization
-    data_rows = map(Base.Fix2(row_to_dict, colnames), Tables.rows(table))
+    # Use safe field names in the data
+    data_rows = map(Tables.rows(table)) do row
+        row_dict = row_to_dict(row, colnames)
+        # Transform keys to safe field names
+        safe_dict = Dict{String, Any}()
+        for (colname, value) in row_dict
+            colname_sym = Symbol(colname)
+            safe_field = colname_to_field[colname_sym]
+            safe_dict[safe_field] = value
+        end
+        return safe_dict
+    end
     nrows = length(data_rows)
 
     data_json = JSON.json(data_rows)
 
-    # Create column configurations
+    # Create column configurations with safe field names
     column_configs = map(colnames) do colname
         col_type = get_or_detect_column_type(table, colname, col_type_dict, auto_categorical_threshold)
-        create_column_config(table, colname, col_type)
+        safe_field = colname_to_field[Symbol(colname)]
+        create_column_config(table, colname, col_type, safe_field)
     end
 
     columns_json = "[" * join(config_to_json.(column_configs), ", ") * "]"
