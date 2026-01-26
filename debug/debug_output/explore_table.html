@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataFrame Table View</title>
+
+    <!-- Tabulator CSS -->
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <style>
+        body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    max-width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.controls {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.controls button {
+    padding: 8px 16px;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.controls button:hover {
+    background: #4b5563;
+}
+
+.info {
+    color: #666;
+    font-size: 14px;
+    margin-left: auto;
+}
+
+.column-toggle {
+    position: relative;
+    display: inline-block;
+}
+
+.column-toggle-btn {
+    padding: 8px 16px;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.column-toggle-btn:hover {
+    background: #4b5563;
+}
+
+.column-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 5px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.column-menu.show {
+    display: block;
+}
+
+.column-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.column-menu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.column-menu-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+#table {
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Custom Tabulator styling */
+.tabulator .tabulator-header {
+    background-color: #374151;
+    color: white;
+    font-weight: bold;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+    background-color: #374151;
+    border-right: 1px solid #4b5563;
+    overflow: visible !important;
+}
+
+.tabulator .tabulator-header .tabulator-col-title {
+    color: white;
+    overflow: visible !important;
+}
+
+.tabulator-row.tabulator-row-even {
+    background-color: #f9f9f9;
+}
+
+.tabulator-row:hover {
+    background-color: #f3f4f6 !important;
+}
+
+/* Filter input styling */
+.tabulator .tabulator-header-filter input,
+.tabulator .tabulator-header-filter select {
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
+/* Hide default sort arrow for all columns (using custom inline arrows instead) */
+.tabulator-col .tabulator-col-sorter,
+.tabulator-col .tabulator-arrow {
+    display: none !important;
+}
+
+.tabulator .tabulator-header {
+    min-height: 200px !important;
+}
+.tabulator .tabulator-col {
+    min-height: 200px !important;
+}
+.rotated-header {
+    display: block;
+    transform: rotate(-90deg);
+    transform-origin: left bottom;
+    white-space: nowrap;
+    margin-top: 200px;
+    margin-left: 15px;
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <button onclick="clearFilters()">Clear All Filters</button>
+            <button onclick="exportCSV()">Export as CSV</button>
+            <button onclick="exportJSON()">Export as JSON</button>
+            <div class="column-toggle">
+                <button class="column-toggle-btn" onclick="toggleColumnMenu()">Show/Hide Columns</button>
+                <div id="columnMenu" class="column-menu"></div>
+            </div>
+            <div class="info">
+                <strong>Rows:</strong> <span id="activeRows">10</span> / 10 | <strong>Columns:</strong> 4
+            </div>
+        </div>
+
+        <div id="table"></div>
+    </div>
+
+    <!-- Tabulator JavaScript -->
+    <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script>
+        // Encode field name to safe HTML ID by converting special characters to hex codes
+function fieldToSafeId(fieldName) {
+    return 'col-' + fieldName.split('').map(char => {
+        // Allow alphanumeric characters and underscores as-is
+        if (/[a-zA-Z0-9_]/.test(char)) {
+            return char;
+        }
+        // Convert other characters to hex encoding (e.g., '.' -> '_2e')
+        return '_' + char.charCodeAt(0).toString(16);
+    }).join('');
+}
+
+// Custom filter functions for numeric type filtering
+function numericTypeFilter(headerValue, rowValue, rowData, filterParams) {
+    // headerValue is an array of selected types (e.g., ["numerical", "NaN"])
+    if (!headerValue || headerValue.length === 0) return true;
+
+    // Categorize the row value
+    let valueType;
+    if (rowValue === null || rowValue === undefined || rowValue === '') {
+        valueType = "(null)";
+    } else if (rowValue === "NaN") {
+        valueType = "NaN";
+    } else if (rowValue === "Infinity") {
+        valueType = "Infinity";
+    } else if (rowValue === "-Infinity") {
+        valueType = "-Infinity";
+    } else if (typeof rowValue === 'number') {
+        valueType = "numerical";
+    } else {
+        valueType = "numerical";  // Fallback
+    }
+
+    return headerValue.includes(valueType);
+}
+
+function numericTypeSingleFilter(headerValue, rowValue, rowData, filterParams) {
+    // headerValue is a single selected type (e.g., "numerical")
+    if (!headerValue) return true;
+
+    // Categorize the row value
+    let valueType;
+    if (rowValue === null || rowValue === undefined || rowValue === '') {
+        valueType = "(null)";
+    } else if (rowValue === "NaN") {
+        valueType = "NaN";
+    } else if (rowValue === "Infinity") {
+        valueType = "Infinity";
+    } else if (rowValue === "-Infinity") {
+        valueType = "-Infinity";
+    } else if (typeof rowValue === 'number') {
+        valueType = "numerical";
+    } else {
+        valueType = "numerical";  // Fallback
+    }
+
+    return valueType === headerValue;
+}
+
+// Initialize table with data and columns passed from Julia
+function initializeTable(tableData, columns) {
+    // Custom sorter that handles missing/null values
+    const customSorter = function(a, b, aRow, bRow, column, dir, sorterParams) {
+        // Handle null/undefined/missing values - sort them to the bottom
+        const aVal = a === null || a === undefined || a === "" ? null : a;
+        const bVal = b === null || b === undefined || b === "" ? null : b;
+
+        if (aVal === null && bVal === null) return 0;
+        if (aVal === null) return 1;  // a goes to bottom
+        if (bVal === null) return -1; // b goes to bottom
+
+        // Normal comparison for non-null values
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+            return aVal.localeCompare(bVal);
+        }
+
+        if (aVal < bVal) return -1;
+        if (aVal > bVal) return 1;
+        return 0;
+    };
+
+    // Apply custom sorter to all columns and register custom filter functions
+    columns.forEach(col => {
+        col.sorter = customSorter;
+
+        // Register custom filter functions for numeric type filtering
+        if (col.headerFilterFunc === "numericTypeFilter") {
+            col.headerFilterFunc = numericTypeFilter;
+        } else if (col.headerFilterFunc === "numericTypeSingleFilter") {
+            col.headerFilterFunc = numericTypeSingleFilter;
+        }
+    });
+
+    // Initialize Tabulator
+    const table = new Tabulator("#table", {
+        data: tableData,
+        columns: columns,
+        layout: "fitData",
+        height: "100%",
+        movableColumns: true,
+        resizableColumns: true,
+        initialSort: [
+            { column: columns[0].field, dir: "asc" }
+        ]
+    });
+
+    // Update sort arrows for heatmap columns when sorting changes
+    table.on("dataSorted", function(sorters, rows){
+        // Reset all arrows to neutral circle
+        document.querySelectorAll('.sort-arrow').forEach(arrow => {
+            arrow.textContent = "○";
+        });
+
+        // Update arrow for sorted column(s)
+        if (sorters.length > 0) {
+            sorters.forEach(sorter => {
+                const field = sorter.field;
+                const dir = sorter.dir;
+                const arrow = dir === "asc" ? "▲" : "▼";
+
+                // Find the column header and update its arrow
+                const columns = table.getColumns();
+                columns.forEach(col => {
+                    if (col.getField() === field) {
+                        const headerElement = col.getElement();
+                        const arrowElement = headerElement.querySelector('.sort-arrow');
+                        if (arrowElement) {
+                            arrowElement.textContent = arrow;
+                        }
+                    }
+                });
+            });
+        }
+    });
+
+    return table;
+}
+
+// Control functions
+function clearFilters() {
+    // Clear all filters and header filter inputs
+    window.tabulatorTable.clearFilter(true);
+    // Manually clear all header filter input fields
+    document.querySelectorAll('.tabulator-header-filter input').forEach(input => {
+        input.value = '';
+    });
+    console.log("All filters cleared");
+}
+
+function exportCSV() {
+    window.tabulatorTable.download("csv", "dataframe_export.csv");
+}
+
+function exportJSON() {
+    window.tabulatorTable.download("json", "dataframe_export.json");
+}
+
+// Column toggle functionality
+function toggleColumnMenu() {
+    const menu = document.getElementById('columnMenu');
+    menu.classList.toggle('show');
+}
+
+function populateColumnMenu(columns) {
+    const menu = document.getElementById('columnMenu');
+    menu.innerHTML = '';
+
+    columns.forEach(col => {
+        const item = document.createElement('div');
+        item.className = 'column-menu-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = col.visible !== false;
+        const safeId = fieldToSafeId(col.field);
+        checkbox.id = safeId;
+
+        const label = document.createElement('label');
+        label.htmlFor = safeId;
+        label.textContent = col.title;
+        label.style.cursor = 'pointer';
+
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                window.tabulatorTable.showColumn(col.field);
+            } else {
+                window.tabulatorTable.hideColumn(col.field);
+            }
+        });
+
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        menu.appendChild(item);
+    });
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const columnToggle = document.querySelector('.column-toggle');
+    const menu = document.getElementById('columnMenu');
+    if (columnToggle && menu && !columnToggle.contains(event.target)) {
+        menu.classList.remove('show');
+    }
+});
+
+// Update active row count and log when filters are applied
+function setupFilterLogging(table) {
+    table.on("dataFiltered", function(filters, rows){
+        // Update the active row count display
+        const activeRowsSpan = document.getElementById('activeRows');
+        if (activeRowsSpan) {
+            activeRowsSpan.textContent = rows.length;
+        }
+        console.log("Active filters:", filters.length, "| Visible rows:", rows.length);
+    });
+}
+
+    </script>
+
+    <script>
+        // Table data and columns from Julia
+        const tableData = [{"pivot_row":"BM00025109","Subdoligranulum sp. (group 3) :: APMFZ32":23.104296,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":25.833836},{"pivot_row":"BM00026086","Subdoligranulum sp. (group 3) :: APMFZ32":22.662859,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":27.576824,"Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":24.583622},{"pivot_row":"BM00024140","Subdoligranulum sp. (group 3) :: APMFZ32":24.782776,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":22.538782},{"pivot_row":"BM00026037","Subdoligranulum sp. (group 3) :: APMFZ32":29.98324,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":24.61799},{"pivot_row":"BM00024130","Subdoligranulum sp. (group 3) :: APMFZ32":22.19059,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":20.734322,"Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":25.152971},{"pivot_row":"BM00027084","Subdoligranulum sp. (group 3) :: APMFZ32":22.373611,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":21.36715,"Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":23.58611},{"pivot_row":"BM00028117","Subdoligranulum sp. (group 3) :: APMFZ32":24.310852,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":28.956255,"Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":21.775633},{"pivot_row":"BM00024088","Subdoligranulum sp. (group 3) :: APMFZ32":25.337847,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":24.609741},{"pivot_row":"BM00028064","Subdoligranulum sp. (group 3) :: APMFZ32":23.259949,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":22.7293},{"pivot_row":"BM00024089","Subdoligranulum sp. (group 3) :: APMFZ32":25.746304,"Bifidobacterium animalis subsp. lactis :: AP9HM4R":"NaN","Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6":22.01964}];
+        const columns = [{"titleFormatter": function(cell) {
+  var value = cell.getValue();
+  return '<span class="sort-arrow">○</span> ' + value;
+}, "headerFilter": "input", "headerSort": true, "tooltip": true, "field": "pivot_row", "title": "pivot_row", "headerTooltip": "pivot_row", "headerFilterFunc": "regex", "headerFilterPlaceholder": "Regex search..."}, {"titleFormatter": function(cell) {
+  var value = cell.getValue();
+  return '<span class="rotated-header"><span class="sort-arrow">○</span> ' + value + '</span>';
+}, "resizable": false, "field": "Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6", "headerTooltip": "Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6", "maxWidth": 25, "headerSort": true, "tooltip": "function(cell) {\n    var val = cell.getValue();\n    if (val == null || val === '') return 'null';\n    if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity\n    return String(val);\n}", "minWidth": 25, "hozAlign": "center", "width": 25, "cssClass": "heatmap-column", "title": "Faecalibacterium cf. prausnitzii KLE1255 :: AP326E6", "formatter": function(cell) {
+  var val = cell.getValue();
+
+  // Handle null/missing/nothing - white background
+  if (val == null || val === '') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#ffffff';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Handle NaN/Infinity/-Infinity - gray background
+  if (typeof val === 'string') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#d3d3d3';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Viridis color palette
+  var palette = ['#031326', '#04172B', '#05192F', '#061D35', '#062038', '#07243E', '#082642', '#0A2A48', '#0C2E4D', '#0D3151', '#103557', '#13385A', '#163C5F', '#193F63', '#1E4368', '#24476C', '#27496F', '#2D4D72', '#314F74', '#385277', '#3E5578', '#415679', '#47587A', '#4A597A', '#4F5B7B', '#525B7A', '#565C7A', '#5A5D7A', '#5C5D79', '#605E78', '#625E78', '#655E77', '#685E77', '#6B5F76', '#6E5F75', '#715F74', '#745F73', '#775F73', '#7A5F72', '#7D6071', '#806070', '#84606F', '#86606E', '#8B606D', '#8D616C', '#92616B', '#95616B', '#996169', '#9E6268', '#A16267', '#A56266', '#A96265', '#AD6364', '#B26363', '#B66462', '#BB6461', '#BE6561', '#C46660', '#C7675F', '#CC685F', '#D16A5E', '#D46C5E', '#D96F5E', '#DC715F', '#DF7460', '#E17760', '#E47B62', '#E67F64', '#E78165', '#E88668', '#E98969', '#E98D6C', '#E9906E', '#E89470', '#E89873', '#E79B75', '#E79F77', '#E6A179', '#E5A57C', '#E5A77E', '#E5AB80', '#E4AF84', '#E4B186', '#E4B58A', '#E4B88D', '#E5BC91', '#E6C096', '#E6C399', '#E8C89E', '#E9CBA2', '#EACFA8', '#ECD2AC', '#EED7B2', '#F0DCB8', '#F1DFBD', '#F4E4C3', '#F5E7C8', '#F8ECCE', '#FAEFD3', '#FCF4D9'];
+  var minVal = 8.0;
+  var maxVal = 30.0;
+
+  // Normalize value to [0, 1] range
+  var normalized = (val - minVal) / (maxVal - minVal);
+  normalized = Math.max(0, Math.min(1, normalized));  // Clamp to [0, 1]
+
+  // Map to palette index
+  var paletteIndex = Math.floor(normalized * (palette.length - 1));
+  var color = palette[paletteIndex];
+
+  // Calculate contrasting text color (white for dark, black for light backgrounds)
+  var r = parseInt(color.substr(1,2), 16);
+  var g = parseInt(color.substr(3,2), 16);
+  var b = parseInt(color.substr(5,2), 16);
+  var brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  var textColor = brightness > 155 ? '#000000' : '#ffffff';
+
+  // Apply styling to the entire cell
+  var cellElement = cell.getElement();
+  cellElement.style.backgroundColor = color;
+  cellElement.style.color = textColor;
+
+  // Return empty string - no text displayed, only color
+  return '';
+}}, {"titleFormatter": function(cell) {
+  var value = cell.getValue();
+  return '<span class="rotated-header"><span class="sort-arrow">○</span> ' + value + '</span>';
+}, "resizable": false, "field": "Subdoligranulum sp. (group 3) :: APMFZ32", "headerTooltip": "Subdoligranulum sp. (group 3) :: APMFZ32", "maxWidth": 25, "headerSort": true, "tooltip": "function(cell) {\n    var val = cell.getValue();\n    if (val == null || val === '') return 'null';\n    if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity\n    return String(val);\n}", "minWidth": 25, "hozAlign": "center", "width": 25, "cssClass": "heatmap-column", "title": "Subdoligranulum sp. (group 3) :: APMFZ32", "formatter": function(cell) {
+  var val = cell.getValue();
+
+  // Handle null/missing/nothing - white background
+  if (val == null || val === '') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#ffffff';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Handle NaN/Infinity/-Infinity - gray background
+  if (typeof val === 'string') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#d3d3d3';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Viridis color palette
+  var palette = ['#031326', '#04172B', '#05192F', '#061D35', '#062038', '#07243E', '#082642', '#0A2A48', '#0C2E4D', '#0D3151', '#103557', '#13385A', '#163C5F', '#193F63', '#1E4368', '#24476C', '#27496F', '#2D4D72', '#314F74', '#385277', '#3E5578', '#415679', '#47587A', '#4A597A', '#4F5B7B', '#525B7A', '#565C7A', '#5A5D7A', '#5C5D79', '#605E78', '#625E78', '#655E77', '#685E77', '#6B5F76', '#6E5F75', '#715F74', '#745F73', '#775F73', '#7A5F72', '#7D6071', '#806070', '#84606F', '#86606E', '#8B606D', '#8D616C', '#92616B', '#95616B', '#996169', '#9E6268', '#A16267', '#A56266', '#A96265', '#AD6364', '#B26363', '#B66462', '#BB6461', '#BE6561', '#C46660', '#C7675F', '#CC685F', '#D16A5E', '#D46C5E', '#D96F5E', '#DC715F', '#DF7460', '#E17760', '#E47B62', '#E67F64', '#E78165', '#E88668', '#E98969', '#E98D6C', '#E9906E', '#E89470', '#E89873', '#E79B75', '#E79F77', '#E6A179', '#E5A57C', '#E5A77E', '#E5AB80', '#E4AF84', '#E4B186', '#E4B58A', '#E4B88D', '#E5BC91', '#E6C096', '#E6C399', '#E8C89E', '#E9CBA2', '#EACFA8', '#ECD2AC', '#EED7B2', '#F0DCB8', '#F1DFBD', '#F4E4C3', '#F5E7C8', '#F8ECCE', '#FAEFD3', '#FCF4D9'];
+  var minVal = 8.0;
+  var maxVal = 30.0;
+
+  // Normalize value to [0, 1] range
+  var normalized = (val - minVal) / (maxVal - minVal);
+  normalized = Math.max(0, Math.min(1, normalized));  // Clamp to [0, 1]
+
+  // Map to palette index
+  var paletteIndex = Math.floor(normalized * (palette.length - 1));
+  var color = palette[paletteIndex];
+
+  // Calculate contrasting text color (white for dark, black for light backgrounds)
+  var r = parseInt(color.substr(1,2), 16);
+  var g = parseInt(color.substr(3,2), 16);
+  var b = parseInt(color.substr(5,2), 16);
+  var brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  var textColor = brightness > 155 ? '#000000' : '#ffffff';
+
+  // Apply styling to the entire cell
+  var cellElement = cell.getElement();
+  cellElement.style.backgroundColor = color;
+  cellElement.style.color = textColor;
+
+  // Return empty string - no text displayed, only color
+  return '';
+}}, {"titleFormatter": function(cell) {
+  var value = cell.getValue();
+  return '<span class="rotated-header"><span class="sort-arrow">○</span> ' + value + '</span>';
+}, "resizable": false, "field": "Bifidobacterium animalis subsp. lactis :: AP9HM4R", "headerTooltip": "Bifidobacterium animalis subsp. lactis :: AP9HM4R", "maxWidth": 25, "headerSort": true, "tooltip": "function(cell) {\n    var val = cell.getValue();\n    if (val == null || val === '') return 'null';\n    if (typeof val === 'string') return val;  // NaN, Infinity, -Infinity\n    return String(val);\n}", "minWidth": 25, "hozAlign": "center", "width": 25, "cssClass": "heatmap-column", "title": "Bifidobacterium animalis subsp. lactis :: AP9HM4R", "formatter": function(cell) {
+  var val = cell.getValue();
+
+  // Handle null/missing/nothing - white background
+  if (val == null || val === '') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#ffffff';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Handle NaN/Infinity/-Infinity - gray background
+  if (typeof val === 'string') {
+    var cellElement = cell.getElement();
+    cellElement.style.backgroundColor = '#d3d3d3';
+    cellElement.style.color = '#000000';
+    return '';
+  }
+
+  // Viridis color palette
+  var palette = ['#031326', '#04172B', '#05192F', '#061D35', '#062038', '#07243E', '#082642', '#0A2A48', '#0C2E4D', '#0D3151', '#103557', '#13385A', '#163C5F', '#193F63', '#1E4368', '#24476C', '#27496F', '#2D4D72', '#314F74', '#385277', '#3E5578', '#415679', '#47587A', '#4A597A', '#4F5B7B', '#525B7A', '#565C7A', '#5A5D7A', '#5C5D79', '#605E78', '#625E78', '#655E77', '#685E77', '#6B5F76', '#6E5F75', '#715F74', '#745F73', '#775F73', '#7A5F72', '#7D6071', '#806070', '#84606F', '#86606E', '#8B606D', '#8D616C', '#92616B', '#95616B', '#996169', '#9E6268', '#A16267', '#A56266', '#A96265', '#AD6364', '#B26363', '#B66462', '#BB6461', '#BE6561', '#C46660', '#C7675F', '#CC685F', '#D16A5E', '#D46C5E', '#D96F5E', '#DC715F', '#DF7460', '#E17760', '#E47B62', '#E67F64', '#E78165', '#E88668', '#E98969', '#E98D6C', '#E9906E', '#E89470', '#E89873', '#E79B75', '#E79F77', '#E6A179', '#E5A57C', '#E5A77E', '#E5AB80', '#E4AF84', '#E4B186', '#E4B58A', '#E4B88D', '#E5BC91', '#E6C096', '#E6C399', '#E8C89E', '#E9CBA2', '#EACFA8', '#ECD2AC', '#EED7B2', '#F0DCB8', '#F1DFBD', '#F4E4C3', '#F5E7C8', '#F8ECCE', '#FAEFD3', '#FCF4D9'];
+  var minVal = 8.0;
+  var maxVal = 30.0;
+
+  // Normalize value to [0, 1] range
+  var normalized = (val - minVal) / (maxVal - minVal);
+  normalized = Math.max(0, Math.min(1, normalized));  // Clamp to [0, 1]
+
+  // Map to palette index
+  var paletteIndex = Math.floor(normalized * (palette.length - 1));
+  var color = palette[paletteIndex];
+
+  // Calculate contrasting text color (white for dark, black for light backgrounds)
+  var r = parseInt(color.substr(1,2), 16);
+  var g = parseInt(color.substr(3,2), 16);
+  var b = parseInt(color.substr(5,2), 16);
+  var brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  var textColor = brightness > 155 ? '#000000' : '#ffffff';
+
+  // Apply styling to the entire cell
+  var cellElement = cell.getElement();
+  cellElement.style.backgroundColor = color;
+  cellElement.style.color = textColor;
+
+  // Return empty string - no text displayed, only color
+  return '';
+}}];
+
+        // Initialize the table
+        window.tabulatorTable = initializeTable(tableData, columns);
+
+        // Populate column menu
+        populateColumnMenu(columns);
+
+        // Setup filter logging
+        setupFilterLogging(window.tabulatorTable);
+    </script>
+</body>
+</html>
