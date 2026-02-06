@@ -57,25 +57,17 @@ explore_table(df,
 function explore_table(
     table,
     column_types::Pair{<:Union{String,Symbol}, <:ColumnType}...;
-    auto_categorical_threshold::Union{Int, Nothing}=nothing
+    auto_categorical_threshold::Union{Int, Nothing}=nothing, outdir=nothing
 )
     auto_categorical_threshold = isnothing(auto_categorical_threshold) ? length(DEFAULT_CATEGORICAL_PALETTE) : auto_categorical_threshold
-    html_path = joinpath(mktempdir(), "explore_table.html")
+    if isnothing(outdir) 
+        dir = mktempdir()
+    else
+        mkpath(dir)
+        dir = outdir
+    end
+    html_path = joinpath(dir, "explore_table.html")
     write(html_path, table_html(table, column_types...; auto_categorical_threshold=auto_categorical_threshold))
     open_in_browser(html_path)
 end
 
-
-# same as explore_table, but writer all files to a known directory for debugging purposes
-function explore_table_debug(
-    debug_dir,
-    table,
-    column_types::Pair{<:Union{String,Symbol}, <:ColumnType}...;
-    auto_categorical_threshold::Union{Int, Nothing}=nothing
-)
-    isdir(debug_dir) || error("debug_dir $debug_dir is not a directory")
-    auto_categorical_threshold = isnothing(auto_categorical_threshold) ? length(DEFAULT_CATEGORICAL_PALETTE) : auto_categorical_threshold
-    html_path = joinpath(debug_dir, "explore_table.html")
-    write(html_path, table_html(table, column_types...; auto_categorical_threshold=auto_categorical_threshold))
-    open_in_browser(html_path)
-end
