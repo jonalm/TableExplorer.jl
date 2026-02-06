@@ -86,10 +86,7 @@ function initializeTable(tableData, columns) {
         layout: "fitData",
         height: "100%",
         movableColumns: true,
-        resizableColumns: true,
-        initialSort: [
-            { column: columns[0].field, dir: "asc" }
-        ]
+        resizableColumns: true
     });
 
     // Update sort arrows for heatmap columns when sorting changes
