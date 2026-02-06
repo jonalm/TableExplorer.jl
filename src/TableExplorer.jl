@@ -9,7 +9,6 @@ using Base: Fix, Fix1, Fix2
 
 export explore_table,
     # columns
-    ColumnBoolean,
     ColumnCategorical,
     ColumnDateTime,
     ColumnHeatmap,

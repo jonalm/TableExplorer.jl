@@ -21,6 +21,4 @@ explore_table(df,
     :priority => ColumnCategorical(multiselect=true),
     :department => ColumnCategorical(),  # Single select for comparison
     :score => ColumnNumeric(decimal_places=2),
-    :is_complete => ColumnBoolean(multiselect=true),
-    :verified => ColumnBoolean()  # Single select for comparison
 )

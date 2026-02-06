@@ -97,16 +97,6 @@ ColumnDateTime(;
 )
 ```
 
-#### `ColumnBoolean`
-For boolean data with custom labels.
-
-```julia
-ColumnBoolean(;
-    search_type=:dropdown,   # :dropdown, :exact, or :input
-    true_label="✓",
-    false_label="✗"
-)
-```
 
 ## Examples
 
@@ -149,7 +139,6 @@ explore_table(df,
     ),
     :score => ColumnNumeric(decimal_places=2),
     "severity" => ColumnText(search_type=:contains),
-    :is_active => ColumnBoolean(true_label="Yes", false_label="No")
 )
 ```
 

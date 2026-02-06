@@ -138,7 +138,6 @@ using DataFrames
             :categorical_col => ColumnCategorical(
                 color_map=Dict("X" => "#ff0000", "Y" => "#00ff00")
             ),
-            :boolean_col => ColumnBoolean(true_label="Yes", false_label="No"),
             :date_col => ColumnDateTime(format="yyyy-mm-dd")
         )
 
@@ -194,7 +193,6 @@ using DataFrames
         @test isdefined(TableExplorer, :ColumnNumeric)
         @test isdefined(TableExplorer, :ColumnCategorical)
         @test isdefined(TableExplorer, :ColumnDateTime)
-        @test isdefined(TableExplorer, :ColumnBoolean)
 
         # Verify they're actually exported (accessible without TableExplorer. prefix)
         using TableExplorer
@@ -203,7 +201,6 @@ using DataFrames
         @test isdefined(Main, :ColumnNumeric)
         @test isdefined(Main, :ColumnCategorical)
         @test isdefined(Main, :ColumnDateTime)
-        @test isdefined(Main, :ColumnBoolean)
     end
 
     @testset "table_html integration" begin

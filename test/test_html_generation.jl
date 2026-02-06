@@ -53,31 +53,6 @@ using JSON
         @test occursin("\"headerFilterPlaceholder\": \"Select...\"", html)
     end
 
-    @testset "ColumnBoolean generates dropdown filter" begin
-        df = DataFrame(
-            flag = [true, false, true],
-            value = [1, 2, 3]
-        )
-
-        # Generate HTML with boolean column
-        html = TableExplorer.table_html(df,
-            :flag => ColumnBoolean()
-        )
-
-        @test html isa String
-
-        # Verify the flag column has list filter (not select)
-        @test occursin("\"headerFilter\": \"list\"", html)
-
-        # Verify the boolean labels are present
-        @test occursin("\"label\":\"✓\"", html) || occursin("\"label\": \"✓\"", html)
-        @test occursin("\"label\":\"✗\"", html) || occursin("\"label\": \"✗\"", html)
-
-        # Verify values are true/false strings
-        @test occursin("\"value\":\"true\"", html) || occursin("\"value\": \"true\"", html)
-        @test occursin("\"value\":\"false\"", html) || occursin("\"value\": \"false\"", html)
-    end
-
     @testset "ColumnCategorical with custom labels" begin
         df = DataFrame(
             status = ["Pass", "Fail", "Pass"],
@@ -110,7 +85,6 @@ using JSON
 
         html = TableExplorer.table_html(df,
             :status => ColumnCategorical(),
-            :flag => ColumnBoolean(),
             :score => ColumnNumeric(decimal_places=2)
         )
 
@@ -216,7 +190,6 @@ using JSON
 
         html = TableExplorer.table_html(df,
             :cat => ColumnCategorical(),
-            :bool => ColumnBoolean(),
             :num => ColumnNumeric(),
             :text => ColumnText()
         )
@@ -257,40 +230,6 @@ using JSON
 
         # Verify multiselect is NOT in headerFilterParams for single select
         @test !occursin("\"multiselect\"", html_single)
-
-        # Verify filter function is "=" for single select
-        @test occursin("\"headerFilterFunc\": \"=\"", html_single) || occursin("\"headerFilterFunc\":\"=\"", html_single)
-    end
-
-    @testset "ColumnBoolean multiselect configuration" begin
-        df = DataFrame(
-            flag = [true, false, true],
-            value = [1, 2, 3]
-        )
-
-        # Test with multiselect enabled
-        html = TableExplorer.table_html(df,
-            :flag => ColumnBoolean(multiselect=true)
-        )
-
-        @test html isa String
-
-        # Verify multiselect is in headerFilterParams
-        @test occursin("\"multiselect\": true", html) || occursin("\"multiselect\":true", html)
-
-        # Verify filter function is "in" for multiselect
-        @test occursin("\"headerFilterFunc\": \"in\"", html) || occursin("\"headerFilterFunc\":\"in\"", html)
-
-        # Test without multiselect (default)
-        html_single = TableExplorer.table_html(df,
-            :flag => ColumnBoolean()
-        )
-
-        @test html_single isa String
-
-        # Count multiselect occurrences - should be 0 for single select boolean
-        multiselect_count = length(collect(eachmatch(r"\"multiselect\"", html_single)))
-        @test multiselect_count == 0
 
         # Verify filter function is "=" for single select
         @test occursin("\"headerFilterFunc\": \"=\"", html_single) || occursin("\"headerFilterFunc\":\"=\"", html_single)

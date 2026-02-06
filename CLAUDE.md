@@ -62,7 +62,7 @@ The package is organized into four main source files, each with a corresponding 
 
 The package exports the following public API:
 - `explore_table`: Main function to generate and view tables
-- `ColumnBoolean`, `ColumnCategorical`, `ColumnDateTime`, `ColumnNumeric`, `ColumnText`: Column type constructors
+- `ColumnCategorical`, `ColumnDateTime`, `ColumnNumeric`, `ColumnText`: Column type constructors
 
 Note: `table_html` is NOT exported and is considered internal, though it can be called directly if needed.
 
@@ -74,7 +74,6 @@ Note: `table_html` is NOT exported and is considered internal, though it can be 
      - `ColumnNumeric`: Decimal formatting and alignment control
      - `ColumnCategorical`: Auto-colored cells based on unique values
      - `ColumnDateTime`: Date formatting
-     - `ColumnBoolean`: Custom labels for true/false
    - Each type defines three behaviors via functions:
      - `create_header_filter_config()`: Tabulator filter configuration
      - `create_formatter()`: JavaScript formatter function for cell rendering

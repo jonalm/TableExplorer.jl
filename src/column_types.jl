@@ -110,33 +110,7 @@ Base.@kwdef struct ColumnDateTime <: ColumnType
     search_type::Symbol = :input
 end
 
-"""
-    ColumnBoolean(; search_type=:dropdown, true_label="✓", false_label="✗", multiselect=false)
 
-Column type for boolean data.
-
-# Fields
-- `search_type::Symbol`: Type of header filter (`:dropdown`, `:exact`, `:input`)
-- `true_label::String`: Display label for true values
-- `false_label::String`: Display label for false values
-- `multiselect::Bool`: Whether to allow multiple selections in dropdown filter (default: false)
-
-# Examples
-```julia
-explore_table(df,
-    "is_active" => ColumnBoolean(true_label="Yes", false_label="No")
-)
-
-# With multiselect enabled (allows selecting both true and false)
-explore_table(df, "flag" => ColumnBoolean(multiselect=true))
-```
-"""
-Base.@kwdef struct ColumnBoolean <: ColumnType
-    search_type::Symbol = :dropdown
-    true_label::String = "✓"
-    false_label::String = "✗"
-    multiselect::Bool = false
-end
 
 """
     ColumnHeatmap(; min_value=nothing, max_value=nothing, alignment=:center, palette=CONTINUOUS_PALETTE)
@@ -334,20 +308,6 @@ function create_header_filter_config(col_type::ColumnDateTime, _table, _colname)
     end
 end
 
-function create_header_filter_config(col_type::ColumnBoolean, _table, _colname)::HeaderFilterConfig
-    if col_type.search_type == :dropdown
-        # Create dropdown with True/False options
-        values = [
-            Dict("label" => col_type.true_label, "value" => "true"),
-            Dict("label" => col_type.false_label, "value" => "false")
-        ]
-        # Use "in" filter function for multiselect, "=" for single select
-        filter_func = col_type.multiselect ? "in" : "="
-        return HeaderFilterConfig("list", filter_func, "Select...", values, col_type.multiselect)
-    else
-        return HeaderFilterConfig("input", "regex", "Regex search...")
-    end
-end
 
 function create_header_filter_config(col_type::ColumnHeatmap, table, colname)::HeaderFilterConfig
     # No filter for heatmap columns
@@ -435,16 +395,6 @@ end
 function create_formatter(col_type::ColumnDateTime, table, colname)
     # For now, return nothing - could add date formatting later
     return nothing
-end
-
-function create_formatter(col_type::ColumnBoolean, table, colname)
-    true_label = js_string_literal(col_type.true_label)
-    false_label = js_string_literal(col_type.false_label)
-    return """function(cell) {
-      var val = cell.getValue();
-      if (val == null || val === '') return '';
-      return val ? '$true_label' : '$false_label';
-    }"""
 end
 
 function create_formatter(col_type::ColumnHeatmap, table, colname)
@@ -538,7 +488,6 @@ get_alignment(col_type::ColumnText) = nothing
 get_alignment(col_type::ColumnNumeric) = string(col_type.alignment)
 get_alignment(col_type::ColumnCategorical) = nothing
 get_alignment(col_type::ColumnDateTime) = nothing
-get_alignment(col_type::ColumnBoolean) = "center"
 get_alignment(col_type::ColumnHeatmap) = nothing  # No alignment needed - cells are empty
 
 """
@@ -656,7 +605,7 @@ function auto_detect_column_type(table, colname; auto_categorical_threshold=noth
 
     # Check for boolean columns (before Number check since Bool <: Number)
     if non_missing_type <: Bool
-        return ColumnBoolean()
+        return ColumnCategorical()
     end
 
     # Check for numeric columns

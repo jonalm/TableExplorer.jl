@@ -70,24 +70,6 @@ using Tables
         @test col_custom.format == "yyyy-mm-dd"
     end
 
-    @testset "ColumnBoolean construction" begin
-        # Test defaults
-        col = ColumnBoolean()
-        @test col.search_type == :dropdown
-        @test col.true_label == "✓"
-        @test col.false_label == "✗"
-        @test col.multiselect == false
-
-        # Test with custom labels
-        col_custom = ColumnBoolean(true_label="Yes", false_label="No")
-        @test col_custom.true_label == "Yes"
-        @test col_custom.false_label == "No"
-
-        # Test with multiselect
-        col_multi = ColumnBoolean(multiselect=true)
-        @test col_multi.multiselect == true
-    end
-
     @testset "create_header_filter_config - ColumnText" begin
         df = DataFrame(name = ["Alice", "Bob"])
 
@@ -257,33 +239,6 @@ using Tables
         @test result_single.filter_func == "="
     end
 
-    @testset "create_header_filter_config - ColumnBoolean" begin
-        df = DataFrame(flag = [true, false, true])
-
-        # Test dropdown (default)
-        col = ColumnBoolean()
-        result = TableExplorer.create_header_filter_config(col, df, :flag)
-        @test result isa TableExplorer.HeaderFilterConfig
-        @test result.filter_type == "list"
-        @test result.filter_func == "="
-        @test result.placeholder == "Select..."
-        @test result.values !== nothing
-        @test length(result.values) == 2
-        @test result.multiselect == false
-
-        # Test multiselect
-        col_multi = ColumnBoolean(multiselect=true)
-        result_multi = TableExplorer.create_header_filter_config(col_multi, df, :flag)
-        @test result_multi.multiselect == true
-        @test result_multi.filter_func == "in"
-        @test result_multi.filter_type == "list"
-
-        # Test with custom labels
-        col_custom = ColumnBoolean(true_label="Yes", false_label="No")
-        result_custom = TableExplorer.create_header_filter_config(col_custom, df, :flag)
-        @test any(v -> v["label"] == "Yes", result_custom.values)
-        @test any(v -> v["label"] == "No", result_custom.values)
-    end
 
     @testset "create_formatter - ColumnText" begin
         df = DataFrame(name = ["Alice", "Bob"])
@@ -354,41 +309,6 @@ using Tables
         @test result === nothing  # Currently no special formatting
     end
 
-    @testset "create_formatter - ColumnBoolean" begin
-        df = DataFrame(flag = [true, false])
-        col = ColumnBoolean()
-        result = TableExplorer.create_formatter(col, df, :flag)
-        @test result isa String
-        @test occursin("✓", result)
-        @test occursin("✗", result)
-
-        # Test with custom labels
-        col_custom = ColumnBoolean(true_label="Yes", false_label="No")
-        result_custom = TableExplorer.create_formatter(col_custom, df, :flag)
-        @test occursin("Yes", result_custom)
-        @test occursin("No", result_custom)
-
-        # Test with special characters in labels (injection vulnerability test)
-        col_special = ColumnBoolean(true_label="It's true", false_label="Don't fail")
-        result_special = TableExplorer.create_formatter(col_special, df, :flag)
-        @test occursin("It\\'s true", result_special)
-        @test occursin("Don\\'t fail", result_special)
-
-        # Test with newlines and backslashes
-        col_escape = ColumnBoolean(true_label="Yes\nOK", false_label="No\\Way")
-        result_escape = TableExplorer.create_formatter(col_escape, df, :flag)
-        @test occursin("Yes\\nOK", result_escape)
-        @test occursin("No\\\\Way", result_escape)
-    end
-
-    @testset "get_alignment" begin
-        @test TableExplorer.get_alignment(ColumnText()) === nothing
-        @test TableExplorer.get_alignment(ColumnNumeric()) == "right"
-        @test TableExplorer.get_alignment(ColumnNumeric(alignment=:left)) == "left"
-        @test TableExplorer.get_alignment(ColumnCategorical()) === nothing
-        @test TableExplorer.get_alignment(ColumnDateTime()) === nothing
-        @test TableExplorer.get_alignment(ColumnBoolean()) == "center"
-    end
 
     @testset "create_column_config" begin
         df = DataFrame(value = [1.5, 2.5], name = ["A", "B"], status = ["Active", "Inactive"])
@@ -437,10 +357,6 @@ using Tables
         result = TableExplorer.auto_detect_column_type(df_int, :count)
         @test result isa ColumnNumeric
 
-        # Test boolean detection
-        df_bool = DataFrame(flag = [true, false, true])
-        result = TableExplorer.auto_detect_column_type(df_bool, :flag)
-        @test result isa ColumnBoolean
 
         # Test categorical detection (few unique values)
         df_cat = DataFrame(status = ["A", "B", "A", "C", "B"])
@@ -456,11 +372,6 @@ using Tables
         df_missing = DataFrame(value = [1, missing, 3])
         result = TableExplorer.auto_detect_column_type(df_missing, :value)
         @test result isa ColumnNumeric
-
-        # Test with all missing - Note: Missing type has Bool as nonmissingtype
-        df_all_missing = DataFrame(value = [missing, missing])
-        result = TableExplorer.auto_detect_column_type(df_all_missing, :value)
-        @test result isa ColumnBoolean  # Missing -> Bool
 
         # Test with Nothing type
         df_nothing = DataFrame(value = [nothing, nothing])
@@ -588,15 +499,6 @@ using Tables
         @test TableExplorer.get_alignment(ColumnHeatmap(alignment=:right)) == "right"
     end
 
-    @testset "Column type hierarchy" begin
-        # Verify all column types are subtypes of ColumnType
-        @test ColumnText <: TableExplorer.ColumnType
-        @test ColumnNumeric <: TableExplorer.ColumnType
-        @test ColumnCategorical <: TableExplorer.ColumnType
-        @test ColumnDateTime <: TableExplorer.ColumnType
-        @test ColumnBoolean <: TableExplorer.ColumnType
-        @test ColumnHeatmap <: TableExplorer.ColumnType
-    end
 
     @testset "Edge cases - mixed types" begin
         # Test with Union types

@@ -47,7 +47,6 @@ Specify custom formatting and search behavior for columns using Pair syntax:
 - `ColumnNumeric`: Numbers with decimal formatting and alignment
 - `ColumnCategorical`: Categorical data with optional color coding
 - `ColumnDateTime`: Date/time data with custom formatting
-- `ColumnBoolean`: Boolean data with custom labels
 
 # Features
 - Uses [Tabulator.js](https://tabulator.info/) library for rich table interactions
