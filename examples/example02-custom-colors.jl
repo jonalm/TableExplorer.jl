@@ -22,6 +22,7 @@ explore_table(df,
     ),
     :score => ColumnNumeric(decimal_places=3),
     "severity" => ColumnText(),
-    :boolean1 => ColumnBoolean()
+    :boolean1 => ColumnCategorical()
 )
  
+

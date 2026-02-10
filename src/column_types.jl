@@ -267,10 +267,16 @@ function create_header_filter_config(col_type::ColumnCategorical, table, colname
         # Collect unique values, preserving missing and nothing
         unique_vals = unique(col_data)
 
+        # Determine if this is a boolean column
+        eltype_col = eltype(col_data)
+        non_missing_type = eltype_col >: Missing ? Base.nonmissingtype(eltype_col) : eltype_col
+        is_bool_column = non_missing_type <: Bool
+
         # Track if we've seen a null value (missing or nothing)
         has_null = false
 
         # Convert to strings for display, handling special values
+        # For boolean columns, preserve boolean type in values for proper filtering
         # Filter out duplicates where both missing and nothing exist (they're both null)
         values = Vector{Dict{String, Any}}()
         for val in unique_vals
@@ -282,7 +288,10 @@ function create_header_filter_config(col_type::ColumnCategorical, table, colname
                 end
             else
                 str_val = string(val)
-                push!(values, Dict("label" => str_val, "value" => str_val))
+                # For boolean columns, use actual boolean value (not string) for filtering
+                # This ensures JavaScript type matching works correctly (true === true, not "true" === true)
+                filter_value = is_bool_column ? val : str_val
+                push!(values, Dict("label" => str_val, "value" => filter_value))
             end
         end
 
