@@ -47,23 +47,28 @@ function numericTypeSingleFilter(headerValue, rowValue, rowData, filterParams) {
 
 // Initialize table with data and columns passed from Julia
 function initializeTable(tableData, columns) {
-    // Custom sorter that handles missing/null values
+    // Custom sorter that handles missing/null values and special numeric strings
     const customSorter = function(a, b, aRow, bRow, column, dir, sorterParams) {
-        // Handle null/undefined/missing values - sort them to the bottom
-        const aVal = a === null || a === undefined || a === "" ? null : a;
-        const bVal = b === null || b === undefined || b === "" ? null : b;
+        // Treat null/undefined/empty/NaN/Inf as null-like for sorting (sort to bottom)
+        const isNullLike = (val) => {
+            return val === null || val === undefined || val === "" ||
+                   val === "NaN" || val === "Infinity" || val === "-Infinity";
+        };
 
-        if (aVal === null && bVal === null) return 0;
-        if (aVal === null) return 1;  // a goes to bottom
-        if (bVal === null) return -1; // b goes to bottom
+        const aIsNull = isNullLike(a);
+        const bIsNull = isNullLike(b);
+
+        if (aIsNull && bIsNull) return 0;  // Both null-like, equal
+        if (aIsNull) return 1;  // a goes to bottom
+        if (bIsNull) return -1; // b goes to bottom
 
         // Normal comparison for non-null values
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-            return aVal.localeCompare(bVal);
+        if (typeof a === 'string' && typeof b === 'string') {
+            return a.localeCompare(b);
         }
 
-        if (aVal < bVal) return -1;
-        if (aVal > bVal) return 1;
+        if (a < b) return -1;
+        if (a > b) return 1;
         return 0;
     };
 
